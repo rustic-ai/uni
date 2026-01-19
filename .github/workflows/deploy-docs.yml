@@ -24,10 +24,10 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install mold linker
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y mold
+          sudo apt-get install -y mold protobuf-compiler
 
       - name: Setup Python
         uses: actions/setup-python@v5
