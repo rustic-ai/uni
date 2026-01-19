@@ -1,0 +1,27 @@
+[package]
+name = "uni-common"
+description = "Common types, identity encoding, and schema for Uni graph database"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+multibase = "0.9"
+fxhash = { workspace = true }
+bitflags = "2.4"
+smallvec = { workspace = true }
+log = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+tokio = { workspace = true, features = ["fs", "io-util"] }
+arrow-schema = { workspace = true }
+uni-crdt = { workspace = true }
+object_store = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
