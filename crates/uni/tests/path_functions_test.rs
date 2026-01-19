@@ -1,0 +1,138 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024-2026 Dragonscale Team
+
+use serde_json::{Value, json};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tempfile::tempdir;
+use uni::UniConfig;
+use uni::core::id::{Eid, Vid};
+use uni::core::schema::{DataType, SchemaManager};
+use uni::query::executor::Executor;
+use uni::query::parser::CypherParser;
+use uni::query::planner::QueryPlanner;
+use uni::runtime::property_manager::PropertyManager;
+use uni::runtime::writer::Writer;
+use uni::storage::manager::StorageManager;
+
+#[tokio::test]
+async fn test_path_functions() -> anyhow::Result<()> {
+    let _ = env_logger::builder().is_test(true).try_init();
+    let temp_dir = tempdir()?;
+    let path = temp_dir.path();
+
+    // 1. Setup Schema
+    let schema_manager = SchemaManager::load(&path.join("schema.json")).await?;
+    let person_lbl = schema_manager.add_label("Person", false)?;
+    let knows_edge = schema_manager.add_edge_type(
+        "KNOWS",
+        vec!["Person".to_string()],
+        vec!["Person".to_string()],
+    )?;
+
+    schema_manager.add_property("Person", "name", DataType::String, false)?;
+    schema_manager.save().await?;
+    let schema_manager = Arc::new(schema_manager);
+
+    let storage = Arc::new(StorageManager::new(
+        path.join("storage").to_str().unwrap(),
+        schema_manager.clone(),
+    ));
+    let cache_arc = Some(storage.adjacency_cache());
+    let mut writer = Writer::new_with_config(
+        storage.clone(),
+        schema_manager.clone(),
+        0,
+        UniConfig::default(),
+        cache_arc,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    // 2. Insert Data
+    // A -> B -> C
+    let names = ["A", "B", "C"];
+    let mut vids = Vec::new();
+
+    for (i, name) in names.iter().enumerate() {
+        let vid = Vid::new(person_lbl, i as u64);
+        vids.push(vid);
+        let mut props = HashMap::new();
+        props.insert("name".to_string(), json!(name));
+        writer.insert_vertex(vid, props).await?;
+    }
+
+    // Edges with specific EIDs
+    // A(0) -> B(1), eid=10
+    writer
+        .insert_edge(
+            vids[0],
+            vids[1],
+            knows_edge,
+            Eid::new(knows_edge, 10),
+            HashMap::new(),
+        )
+        .await?;
+    // B(1) -> C(2), eid=11
+    writer
+        .insert_edge(
+            vids[1],
+            vids[2],
+            knows_edge,
+            Eid::new(knows_edge, 11),
+            HashMap::new(),
+        )
+        .await?;
+
+    writer.flush_to_l1(None).await?;
+
+    // 3. Test Path Functions
+    // MATCH (n:Person)-[p:KNOWS*2..2]->(m:Person) WHERE n.name = 'A'
+    // RETURN length(p), nodes(p), relationships(p)
+    let cypher = "MATCH (n:Person)-[p:KNOWS*2..2]->(m:Person) WHERE n.name = 'A' RETURN length(p), nodes(p), relationships(p)";
+
+    let mut parser = CypherParser::new(cypher)?;
+    let query_ast = parser.parse()?;
+
+    let planner = QueryPlanner::new(Arc::new(schema_manager.schema().clone()));
+    let plan = planner.plan(query_ast)?;
+
+    let executor = Executor::new(storage.clone());
+    let prop_manager = PropertyManager::new(storage.clone(), schema_manager.clone(), 100);
+
+    let results = executor
+        .execute(plan, &prop_manager, &HashMap::new())
+        .await?;
+
+    assert_eq!(results.len(), 1);
+
+    // length(p) should be 2
+    assert_eq!(results[0].get("LENGTH(p)"), Some(&json!(2)));
+
+    // nodes(p) should be [A, B, C] (VIDs)
+    let nodes_val = results[0].get("NODES(p)").unwrap();
+    if let Value::Array(arr) = nodes_val {
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_u64(), Some(vids[0].as_u64()));
+        assert_eq!(arr[1].as_u64(), Some(vids[1].as_u64()));
+        assert_eq!(arr[2].as_u64(), Some(vids[2].as_u64()));
+    } else {
+        panic!("nodes(p) is not an array");
+    }
+
+    // relationships(p) should be [10, 11] (EIDs)
+    let rels_val = results[0].get("RELATIONSHIPS(p)").unwrap();
+    if let Value::Array(arr) = rels_val {
+        assert_eq!(arr.len(), 2);
+        let eid10 = Eid::new(knows_edge, 10).as_u64();
+        let eid11 = Eid::new(knows_edge, 11).as_u64();
+        assert_eq!(arr[0].as_u64(), Some(eid10));
+        assert_eq!(arr[1].as_u64(), Some(eid11));
+    } else {
+        panic!("relationships(p) is not an array");
+    }
+
+    Ok(())
+}

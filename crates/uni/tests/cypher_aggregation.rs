@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024-2026 Dragonscale Team
+
+use arrow_array::{BooleanArray, Float64Array, Int32Array, RecordBatch, UInt64Array};
+use lance::dataset::WriteMode;
+use serde_json::{Value, json};
+use std::sync::Arc;
+use tempfile::tempdir;
+use uni::core::id::Vid;
+use uni::core::schema::{DataType, SchemaManager};
+use uni::query::executor::Executor;
+use uni::query::parser::CypherParser;
+use uni::query::planner::QueryPlanner;
+use uni::runtime::property_manager::PropertyManager;
+use uni::storage::manager::StorageManager;
+
+#[tokio::test]
+async fn test_cypher_aggregation() -> anyhow::Result<()> {
+    let _ = env_logger::builder().is_test(true).try_init();
+    let temp_dir = tempdir()?;
+    let path = temp_dir.path();
+
+    // 1. Setup
+    let schema_manager = SchemaManager::load(&path.join("schema.json")).await?;
+    let person_lbl = schema_manager.add_label("Person", false)?;
+    schema_manager.add_property("Person", "age", DataType::Int32, false)?;
+
+    let order_lbl = schema_manager.add_label("Order", false)?;
+    schema_manager.add_property("Order", "amount", DataType::Float64, false)?;
+
+    schema_manager.save().await?;
+    let schema_manager = Arc::new(schema_manager);
+    let storage = Arc::new(StorageManager::new(
+        path.join("storage").to_str().unwrap(),
+        schema_manager.clone(),
+    ));
+
+    // Insert Persons:
+    // 0: 20
+    // 1: 30
+    // 2: 20
+    // 3: 40
+    let vertex_ds = storage.vertex_dataset("Person")?;
+    let batch = RecordBatch::try_new(
+        vertex_ds.get_arrow_schema(&schema_manager.schema())?,
+        vec![
+            Arc::new(UInt64Array::from(vec![
+                Vid::new(person_lbl, 0).as_u64(),
+                Vid::new(person_lbl, 1).as_u64(),
+                Vid::new(person_lbl, 2).as_u64(),
+                Vid::new(person_lbl, 3).as_u64(),
+            ])),
+            Arc::new(arrow_array::FixedSizeBinaryArray::new(
+                32,
+                vec![0u8; 32 * 4].into(),
+                None,
+            )),
+            Arc::new(BooleanArray::from(vec![false; 4])),
+            Arc::new(UInt64Array::from(vec![1; 4])),
+            Arc::new(Int32Array::from(vec![20, 30, 20, 40])), // age
+        ],
+    )?;
+    vertex_ds.write_batch(batch, WriteMode::Overwrite).await?;
+
+    // Insert Orders
+    // 0: 10.0
+    // 1: 20.0
+    // 2: 30.0
+    let order_ds = storage.vertex_dataset("Order")?;
+    let batch = RecordBatch::try_new(
+        order_ds.get_arrow_schema(&schema_manager.schema())?,
+        vec![
+            Arc::new(UInt64Array::from(vec![
+                Vid::new(order_lbl, 0).as_u64(),
+                Vid::new(order_lbl, 1).as_u64(),
+                Vid::new(order_lbl, 2).as_u64(),
+            ])),
+            Arc::new(arrow_array::FixedSizeBinaryArray::new(
+                32,
+                vec![0u8; 32 * 3].into(),
+                None,
+            )),
+            Arc::new(BooleanArray::from(vec![false; 3])),
+            Arc::new(UInt64Array::from(vec![1; 3])),
+            Arc::new(Float64Array::from(vec![10.0, 20.0, 30.0])), // amount
+        ],
+    )?;
+    order_ds.write_batch(batch, WriteMode::Overwrite).await?;
+
+    let prop_mgr = PropertyManager::new(storage.clone(), schema_manager.clone(), 100);
+    let executor = Executor::new(storage.clone());
+    let planner = QueryPlanner::new(Arc::new(schema_manager.schema().clone()));
+
+    // Test 1: COUNT(*)
+    println!("--- Test 1: COUNT(*) ---");
+    let sql = "MATCH (n:Person) RETURN COUNT(*)";
+    let query = CypherParser::new(sql)?.parse()?;
+    let plan = planner.plan(query)?;
+    let results = executor
+        .execute(plan, &prop_mgr, &std::collections::HashMap::new())
+        .await?;
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].get("COUNT(*)"), Some(&Value::Number(4.into())));
+
+    // Test 2: Group By Age (n.age, COUNT(*))
+    println!("--- Test 2: Group By Age ---");
+    let sql = "MATCH (n:Person) RETURN n.age, COUNT(*) ORDER BY n.age ASC";
+    let query = CypherParser::new(sql)?.parse()?;
+    let plan = planner.plan(query)?;
+    let results = executor
+        .execute(plan, &prop_mgr, &std::collections::HashMap::new())
+        .await?;
+
+    assert_eq!(results.len(), 3);
+    // 20: 2
+    assert_eq!(results[0].get("n.age"), Some(&json!(20)));
+    assert_eq!(results[0].get("COUNT(*)"), Some(&json!(2)));
+    // 30: 1
+    assert_eq!(results[1].get("n.age"), Some(&json!(30)));
+    // 40: 1
+    assert_eq!(results[2].get("n.age"), Some(&json!(40)));
+
+    // Test 3: SUM(n.amount)
+    println!("--- Test 3: SUM ---");
+    let sql = "MATCH (n:Order) RETURN SUM(n.amount)";
+    let query = CypherParser::new(sql)?.parse()?;
+    let plan = planner.plan(query)?;
+    let results = executor
+        .execute(plan, &prop_mgr, &std::collections::HashMap::new())
+        .await?;
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].get("SUM(n.amount)"), Some(&json!(60.0)));
+
+    Ok(())
+}
