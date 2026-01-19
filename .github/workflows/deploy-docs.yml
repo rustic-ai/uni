@@ -1,0 +1,65 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'website/**'
+      - 'crates/**/*.rs'
+      - 'bindings/python/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install mkdocs-material pdoc maturin
+
+      - name: Build Rust documentation
+        run: |
+          cargo doc --no-deps --document-private-items -p uni -p uni-common -p uni-query -p uni-store -p uni-algo
+          mkdir -p website/site/api/rust
+          cp -r target/doc/* website/site/api/rust/
+
+      - name: Build Python bindings
+        run: |
+          cd bindings/python
+          maturin build --release
+          pip install target/wheels/*.whl
+
+      - name: Build Python documentation
+        run: |
+          mkdir -p website/site/api/python
+          pdoc --html --output-dir website/site/api/python uni
+          # Move from subdirectory to expected location
+          mv website/site/api/python/uni/* website/site/api/python/ || true
+          rmdir website/site/api/python/uni || true
+
+      - name: Build MkDocs Documentation
+        run: |
+          cd website
+          mkdocs build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./website/site
