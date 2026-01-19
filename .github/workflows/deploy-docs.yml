@@ -52,11 +52,7 @@ jobs:
 
       - name: Build Python documentation
         run: |
-          mkdir -p website/site/api/python
-          pdoc --html --output-dir website/site/api/python uni
-          # Move from subdirectory to expected location
-          mv website/site/api/python/uni/* website/site/api/python/ || true
-          rmdir website/site/api/python/uni || true
+          pdoc -o website/site/api/python uni
 
       - name: Build MkDocs Documentation
         run: |
