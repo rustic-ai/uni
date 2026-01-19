@@ -43,6 +43,13 @@ jobs:
         run: |
           pip install mkdocs-material pdoc maturin
 
+      # Build MkDocs FIRST (it cleans the site directory)
+      - name: Build MkDocs Documentation
+        run: |
+          cd website
+          mkdocs build
+
+      # Build and copy API docs AFTER MkDocs
       - name: Build Rust documentation
         run: |
           cargo doc --no-deps --document-private-items -p uni -p uni-common -p uni-query -p uni-store -p uni-algo
@@ -58,11 +65,6 @@ jobs:
       - name: Build Python documentation
         run: |
           pdoc -o website/site/api/python uni
-
-      - name: Build MkDocs Documentation
-        run: |
-          cd website
-          mkdocs build
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
