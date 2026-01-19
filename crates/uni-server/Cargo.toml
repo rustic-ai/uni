@@ -1,0 +1,25 @@
+[package]
+name = "uni-server"
+description = "HTTP server and web explorer for Uni graph database"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+uni = { workspace = true }
+uni-common = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = "0.1"
+log = { workspace = true }
+anyhow = { workspace = true }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+rust-embed = "8.0"
+mime_guess = "2.0"

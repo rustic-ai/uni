@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uni Graph Explorer</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        #query-box { width: 100%; height: 100px; font-family: monospace; }
+        #results { margin-top: 20px; white-space: pre-wrap; background: #f0f0f0; padding: 10px; }
+        button { padding: 10px 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Uni Graph Explorer</h1>
+    <textarea id="query-box" placeholder="Enter Cypher query here...">MATCH (n) RETURN n LIMIT 10</textarea>
+    <br>
+    <button onclick="runQuery()">Run Query</button>
+    <div id="results"></div>
+
+    <script>
+        async function runQuery() {
+            const query = document.getElementById('query-box').value;
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.textContent = "Running...";
+            
+            try {
+                const response = await fetch('/v1/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+                const data = await response.json();
+                resultsDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultsDiv.textContent = "Error: " + e;
+            }
+        }
+    </script>
+</body>
+</html>
