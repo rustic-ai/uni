@@ -12,7 +12,7 @@ name = "uni"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module", "abi3-py310"] }
+pyo3 = { version = "0.24", features = ["extension-module", "abi3-py310"] }
 uni = { workspace = true }
 uni-common = { workspace = true }
 tokio = { workspace = true }

@@ -28,7 +28,7 @@ fxhash = { workspace = true }
 async-trait = { workspace = true }
 tempfile = { workspace = true }
 dashmap = "6.0"
-lru = "0.12"
+lru = "0.16"
 metrics = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 futures = "0.3"
