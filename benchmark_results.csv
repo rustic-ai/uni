@@ -1,0 +1,17 @@
+benchmark,100n_250e_median_ms,1000n_3000e_median_ms,1000n_3000e_fixed_ms,speedup
+ingest/vertices,0.146,0.760,0.863,0.9x
+flush/l0_items,10.300,12.147,14.025,0.9x
+point_lookup/by_name,56.384,42.176,28.438,1.5x
+traversal/1_hop,55.548,45.168,39.657,1.1x
+traversal/2_hop,47.634,43.706,40.622,1.1x
+traversal/3_hop,42.629,44.150,39.921,1.1x
+vector/knn,6.587,7.205,8.150,0.9x
+hybrid/vector_graph,26.911,28.741,29.588,1.0x
+index_creation/vector_hnsw,21.692,22.209,22.002,1.0x
+index_creation/scalar_btree,6.730,7.537,7.227,1.0x
+index_creation/fts_standard,8.595,13.705,13.256,1.0x
+indexed_vector/knn_indexed,3.663,3.582,3.723,1.0x
+indexed_vector/similarity_filter,3.766,4.426,4.767,0.9x
+scalar_index/equality_indexed,39.384,225.150,22.133,10.2x
+scalar_index/range_indexed,240.580,2291.400,22.855,100.3x
+fulltext_index/string_match_indexed,42.541,48.595,25.446,1.9x
