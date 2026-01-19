@@ -1,0 +1,847 @@
+# Uni - Embedded Graph Database
+
+> Uni is an embedded, object-store-backed graph database with OpenCypher queries, columnar analytics, and vector search. Use this reference when building Rust applications with Uni.
+
+## Quick Start
+
+```rust
+use uni::Uni;
+
+#[tokio::main]
+async fn main() -> uni::Result<()> {
+    // Create in-memory database
+    let db = Uni::in_memory().build().await?;
+
+    // Define schema
+    db.schema()
+        .label("Person")
+        .property("name", DataType::String)
+        .property("age", DataType::Int32)
+        .done()
+        .edge_type("KNOWS", &["Person"], &["Person"])
+        .apply()
+        .await?;
+
+    // Create data
+    db.execute("CREATE (:Person {name: 'Alice', age: 30})").await?;
+    db.execute("CREATE (:Person {name: 'Bob', age: 25})").await?;
+    db.execute("MATCH (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}) CREATE (a)-[:KNOWS]->(b)").await?;
+
+    // Query data
+    let results = db.query("MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age").await?;
+    for row in results.rows() {
+        println!("{}: {}", row.get::<String>("p.name")?, row.get::<i32>("p.age")?);
+    }
+
+    Ok(())
+}
+```
+
+## Dependencies
+
+```toml
+[dependencies]
+uni = "0.1"
+tokio = { version = "1", features = ["full"] }
+```
+
+---
+
+## Database Initialization
+
+### Opening a Database
+
+```rust
+// In-memory (ephemeral)
+let db = Uni::in_memory().build().await?;
+
+// Temporary directory (auto-cleaned)
+let db = Uni::temporary().build().await?;
+
+// File-based persistence
+let db = Uni::open("./my_graph").build().await?;
+
+// Open existing only (fail if not exists)
+let db = Uni::open_existing("./my_graph").build().await?;
+
+// Create new only (fail if exists)
+let db = Uni::create("./my_graph").build().await?;
+
+// Object storage (S3/GCS)
+let db = Uni::open("s3://bucket/path").build().await?;
+
+// Hybrid: local WAL + remote storage
+let db = Uni::open("s3://bucket/path")
+    .hybrid("./local_cache", "s3://bucket/path")
+    .build().await?;
+
+// With configuration
+let db = Uni::open("./my_graph")
+    .cache_size(1024 * 1024 * 1024)  // 1GB adjacency cache
+    .parallelism(8)                   // Worker threads
+    .schema_file("schema.json")       // Load schema from file
+    .build().await?;
+
+// Time-travel: open at specific snapshot
+let db = Uni::open("./my_graph")
+    .at_snapshot("snapshot_id")
+    .build().await?;
+```
+
+### Synchronous API
+
+```rust
+use uni::UniSync;
+
+let db = UniSync::in_memory()?;
+db.execute("CREATE (:Person {name: 'Alice'})")?;
+let results = db.query("MATCH (n:Person) RETURN n.name")?;
+```
+
+---
+
+## Schema Definition
+
+### Data Types
+
+```rust
+use uni::DataType;
+
+DataType::String
+DataType::Int32
+DataType::Int64
+DataType::Float32
+DataType::Float64
+DataType::Bool
+DataType::Timestamp    // Unix timestamp
+DataType::Date         // Calendar date
+DataType::Time         // Time of day
+DataType::DateTime     // Date + time
+DataType::Duration     // Time duration
+DataType::Json         // JSON object
+DataType::Vector { dimensions: 768 }  // Vector embedding
+DataType::List(Box::new(DataType::String))  // List of strings
+DataType::Map(Box::new(DataType::String), Box::new(DataType::Int64))  // Map
+```
+
+### Defining Labels and Edge Types
+
+```rust
+db.schema()
+    // Vertex label
+    .label("Person")
+    .property("name", DataType::String)           // Required
+    .property_nullable("email", DataType::String) // Optional
+    .property("age", DataType::Int32)
+    .done()
+
+    // Document label (flexible JSON properties)
+    .label("Article")
+    .property("title", DataType::String)
+    .document()  // Allows arbitrary JSON properties
+    .done()
+
+    // Label with vector embedding
+    .label("Document")
+    .property("content", DataType::String)
+    .vector("embedding", 768)  // 768-dimensional vector
+    .done()
+
+    // Edge type with properties
+    .edge_type("KNOWS", &["Person"], &["Person"])
+    .property("since", DataType::Int32)
+    .property("weight", DataType::Float64)
+    .done()
+
+    // Edge type between multiple labels
+    .edge_type("AUTHORED", &["Person"], &["Article", "Document"])
+    .done()
+
+    .apply()
+    .await?;
+```
+
+### Index Types
+
+```rust
+use uni::{IndexType, VectorIndexCfg, VectorAlgo, VectorMetric, ScalarType};
+
+// Vector indexes
+IndexType::Vector(VectorIndexCfg {
+    algorithm: VectorAlgo::Hnsw { m: 16, ef_construction: 200 },
+    metric: VectorMetric::Cosine,
+})
+
+IndexType::Vector(VectorIndexCfg {
+    algorithm: VectorAlgo::IvfPq { partitions: 100, sub_vectors: 8 },
+    metric: VectorMetric::L2,
+})
+
+IndexType::Vector(VectorIndexCfg {
+    algorithm: VectorAlgo::Flat,
+    metric: VectorMetric::Dot,
+})
+
+// Scalar indexes
+IndexType::Scalar(ScalarType::BTree)   // Range queries
+IndexType::Scalar(ScalarType::Hash)    // Equality lookups
+IndexType::Scalar(ScalarType::Bitmap)  // Low-cardinality columns
+
+// Full-text search
+IndexType::FullText
+
+// Adding indexes to schema
+db.schema()
+    .label("Product")
+    .property("name", DataType::String)
+    .property("price", DataType::Float64)
+    .vector("embedding", 512)
+    .index("name", IndexType::FullText)
+    .index("price", IndexType::Scalar(ScalarType::BTree))
+    .index("embedding", IndexType::Vector(VectorIndexCfg {
+        algorithm: VectorAlgo::Hnsw { m: 16, ef_construction: 200 },
+        metric: VectorMetric::Cosine,
+    }))
+    .done()
+    .apply()
+    .await?;
+```
+
+---
+
+## Cypher Queries
+
+### Read Queries
+
+```rust
+// Simple query
+let results = db.query("MATCH (n:Person) RETURN n").await?;
+
+// With WHERE clause
+let results = db.query("MATCH (n:Person) WHERE n.age > 25 RETURN n.name").await?;
+
+// Pattern matching with relationships
+let results = db.query("
+    MATCH (a:Person)-[r:KNOWS]->(b:Person)
+    RETURN a.name, b.name, r.since
+").await?;
+
+// Variable-length paths
+let results = db.query("
+    MATCH (a:Person {name: 'Alice'})-[:KNOWS*1..3]->(b:Person)
+    RETURN DISTINCT b.name
+").await?;
+
+// Aggregations
+let results = db.query("
+    MATCH (p:Person)-[:PURCHASED]->(o:Order)
+    RETURN p.name, count(o) as order_count, sum(o.total) as total_spent
+    ORDER BY total_spent DESC
+    LIMIT 10
+").await?;
+
+// Process results
+for row in results.rows() {
+    let name: String = row.get("p.name")?;
+    let count: i64 = row.get("order_count")?;
+    println!("{}: {} orders", name, count);
+}
+```
+
+### Parametrized Queries
+
+```rust
+let results = db.query_with("MATCH (n:Person {name: $name}) RETURN n")
+    .param("name", "Alice")
+    .fetch_all()
+    .await?;
+
+// Multiple parameters
+let results = db.query_with("
+    MATCH (n:Person)
+    WHERE n.age >= $min_age AND n.age <= $max_age
+    RETURN n.name, n.age
+")
+    .param("min_age", 18)
+    .param("max_age", 65)
+    .timeout(std::time::Duration::from_secs(30))
+    .max_memory(1024 * 1024 * 512)  // 512MB limit
+    .fetch_all()
+    .await?;
+
+// Streaming large results
+let mut cursor = db.query_with("MATCH (n:Person) RETURN n")
+    .query_cursor()
+    .await?;
+
+while let Some(row) = cursor.next().await? {
+    // Process row by row
+}
+```
+
+### Write Queries
+
+```rust
+// Create nodes
+db.execute("CREATE (:Person {name: 'Alice', age: 30})").await?;
+
+// Create multiple nodes
+db.execute("
+    CREATE (:Person {name: 'Bob'}),
+           (:Person {name: 'Carol'}),
+           (:Company {name: 'Acme'})
+").await?;
+
+// Create relationships
+db.execute("
+    MATCH (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'})
+    CREATE (a)-[:KNOWS {since: 2020}]->(b)
+").await?;
+
+// MERGE (create if not exists)
+db.execute("MERGE (:Person {name: 'Alice'})").await?;
+
+// Update properties
+db.execute("
+    MATCH (n:Person {name: 'Alice'})
+    SET n.age = 31, n.updated_at = datetime()
+").await?;
+
+// Delete
+db.execute("MATCH (n:Person {name: 'Temp'}) DELETE n").await?;
+
+// Detach delete (delete node and all relationships)
+db.execute("MATCH (n:Person {name: 'Alice'}) DETACH DELETE n").await?;
+
+// Remove property
+db.execute("MATCH (n:Person) REMOVE n.temporary_field").await?;
+```
+
+### Cypher Syntax Reference
+
+```cypher
+-- Node patterns
+(n)                          -- Any node
+(n:Person)                   -- Node with label
+(n:Person {name: 'Alice'})   -- Node with properties
+(n:Person:Employee)          -- Multiple labels
+
+-- Relationship patterns
+-[r]->                       -- Outgoing relationship
+<-[r]-                       -- Incoming relationship
+-[r]-                        -- Any direction
+-[r:KNOWS]->                 -- With type
+-[r:KNOWS {since: 2020}]->   -- With properties
+-[r:KNOWS|FOLLOWS]->         -- Multiple types (OR)
+-[*1..3]->                   -- Variable length (1 to 3 hops)
+-[*]->                       -- Any length
+
+-- WHERE clauses
+WHERE n.age > 30
+WHERE n.name = 'Alice'
+WHERE n.name STARTS WITH 'A'
+WHERE n.name ENDS WITH 'e'
+WHERE n.name CONTAINS 'lic'
+WHERE n.name =~ 'A.*'        -- Regex
+WHERE n.tags IN ['a', 'b']
+WHERE n.active IS NOT NULL
+WHERE n.age > 20 AND n.age < 40
+WHERE n.status = 'active' OR n.vip = true
+WHERE NOT n.deleted
+
+-- Aggregations
+count(n)
+sum(n.value)
+avg(n.value)
+min(n.value)
+max(n.value)
+collect(n.name)              -- Collect into list
+
+-- Functions
+id(n)                        -- Internal node ID
+labels(n)                    -- Node labels
+type(r)                      -- Relationship type
+properties(n)                -- All properties as map
+keys(n)                      -- Property keys
+coalesce(n.a, n.b, 'default')
+toString(n.value)
+toInteger(n.value)
+toFloat(n.value)
+size(list)
+length(path)
+head(list)
+tail(list)
+last(list)
+range(0, 10)
+
+-- String functions
+trim(s), ltrim(s), rtrim(s)
+toUpper(s), toLower(s)
+substring(s, start, length)
+replace(s, search, replace)
+split(s, delimiter)
+
+-- Date/Time
+date()
+datetime()
+time()
+duration({days: 1, hours: 2})
+
+-- Path functions
+nodes(path)                  -- List of nodes in path
+relationships(path)          -- List of relationships
+length(path)                 -- Number of relationships
+
+-- RETURN
+RETURN n
+RETURN n.name, n.age
+RETURN n.name AS person_name
+RETURN DISTINCT n.category
+RETURN *                     -- All variables
+
+-- ORDER BY, LIMIT, SKIP
+ORDER BY n.name ASC
+ORDER BY n.age DESC, n.name
+LIMIT 10
+SKIP 20
+SKIP 20 LIMIT 10
+```
+
+---
+
+## Vector Search
+
+### Basic Vector Search
+
+```rust
+// Search by vector
+let query_vec = vec![0.1, 0.2, 0.3, /* ... 768 dims */];
+let matches = db.vector_search("Document", "embedding", &query_vec, 10).await?;
+
+for m in matches {
+    println!("VID: {:?}, Distance: {}", m.vid, m.distance);
+}
+```
+
+### Advanced Vector Search
+
+```rust
+let results = db.vector_search_with("Document", "embedding", &query_vec)
+    .k(10)                              // Top-k results
+    .threshold(0.8)                     // Minimum similarity
+    .filter("n.category = 'tech'")      // WHERE filter
+    .fetch_nodes()                      // Return full nodes
+    .await?;
+
+for (node, distance) in results {
+    let title: String = node.get("title")?;
+    println!("{}: {}", title, distance);
+}
+```
+
+### Vector Search via Cypher
+
+```cypher
+-- Basic vector search
+CALL db.idx.vector.query('Document', 'embedding', $query_vector, 10)
+YIELD node, distance
+RETURN node.title, distance
+ORDER BY distance
+
+-- With filtering
+CALL db.idx.vector.query('Document', 'embedding', $query_vector, 10)
+YIELD node, distance
+WHERE node.category = 'tech'
+RETURN node.title, distance
+```
+
+---
+
+## Graph Algorithms
+
+### Rust API
+
+```rust
+// PageRank
+let scores = db.algo()
+    .pagerank()
+    .labels(&["Person"])
+    .edge_types(&["KNOWS"])
+    .damping(0.85)
+    .max_iterations(20)
+    .run()
+    .await?;  // Vec<(Vid, f64)>
+
+// Weakly Connected Components
+let components = db.algo()
+    .wcc()
+    .labels(&["Person"])
+    .edge_types(&["KNOWS", "FOLLOWS"])
+    .run()
+    .await?;  // Vec<(Vid, i64)>
+```
+
+### Algorithm Procedures via Cypher
+
+```cypher
+-- Centrality
+CALL algo.pageRank(['Person'], ['KNOWS']) YIELD nodeId, score
+CALL algo.betweenness(['Person'], ['KNOWS']) YIELD nodeId, score
+CALL algo.closeness(['Person'], ['KNOWS']) YIELD nodeId, score
+CALL algo.degreeCentrality(['Person'], ['KNOWS'], 'BOTH') YIELD nodeId, degree
+CALL algo.eigenvectorCentrality(['Person'], ['KNOWS']) YIELD nodeId, score
+CALL algo.harmonicCentrality(['Person'], ['KNOWS']) YIELD nodeId, score
+CALL algo.katzCentrality(['Person'], ['KNOWS']) YIELD nodeId, score
+
+-- Community Detection
+CALL algo.wcc(['Person'], ['KNOWS']) YIELD nodeId, componentId
+CALL algo.scc(['Person'], ['KNOWS']) YIELD nodeId, componentId
+CALL algo.louvain(['Person'], ['KNOWS']) YIELD nodeId, communityId
+CALL algo.labelPropagation(['Person'], ['KNOWS']) YIELD nodeId, communityId
+
+-- Path Finding
+CALL algo.shortestPath(sourceVid, targetVid, ['KNOWS']) YIELD path, length
+CALL algo.dijkstra(sourceVid, targetVid, ['KNOWS'], 'weight') YIELD path, cost
+CALL algo.astar(sourceVid, targetVid, ['KNOWS']) YIELD path, cost
+CALL algo.bellmanFord(sourceVid, ['KNOWS'], 'weight') YIELD nodeId, distance
+CALL algo.bidirectionalDijkstra(sourceVid, targetVid, ['KNOWS']) YIELD path, cost
+CALL algo.kShortestPaths(sourceVid, targetVid, ['KNOWS'], 3) YIELD path, cost
+CALL algo.allSimplePaths(sourceVid, targetVid, ['KNOWS'], 5) YIELD path
+
+-- Structural Analysis
+CALL algo.triangleCount(['Person'], ['KNOWS']) YIELD count
+CALL algo.kcore(['Person'], ['KNOWS'], 3) YIELD nodeId, coreLevel
+CALL algo.bridges(['Person'], ['KNOWS']) YIELD source, target
+CALL algo.articulationPoints(['Person'], ['KNOWS']) YIELD nodeId
+CALL algo.bipartiteCheck(['Person'], ['KNOWS']) YIELD isBipartite, partition
+
+-- Graph Algorithms
+CALL algo.mst(['Person'], ['KNOWS'], 'weight') YIELD edges, totalWeight
+CALL algo.maxMatching(['Person'], ['KNOWS']) YIELD node1, node2
+CALL algo.maxFlow(sourceVid, sinkVid, ['PIPE'], 'capacity') YIELD maxFlow
+CALL algo.graphMetrics(['Person'], ['KNOWS']) YIELD diameter, radius, center
+
+-- Similarity
+CALL algo.nodeSimilarity(['Person'], ['KNOWS']) YIELD node1, node2, similarity
+
+-- Traversal
+CALL algo.randomWalk(startVid, 10, ['KNOWS']) YIELD path
+CALL algo.topologicalSort(['Task'], ['DEPENDS_ON']) YIELD nodeId, order
+CALL algo.cycleDetection(['Task'], ['DEPENDS_ON']) YIELD hasCycle, cycle
+```
+
+---
+
+## Transactions
+
+### Basic Transactions
+
+```rust
+// Closure-based (auto-commit on success, rollback on error)
+db.transaction(|tx| Box::pin(async move {
+    tx.execute("CREATE (:Account {id: 1, balance: 100})").await?;
+    tx.execute("CREATE (:Account {id: 2, balance: 50})").await?;
+    Ok(())
+})).await?;
+
+// Manual transaction control
+let tx = db.begin().await?;
+tx.execute("MATCH (a:Account {id: 1}) SET a.balance = a.balance - 10").await?;
+tx.execute("MATCH (a:Account {id: 2}) SET a.balance = a.balance + 10").await?;
+tx.commit().await?;
+
+// Query within transaction
+let tx = db.begin().await?;
+let results = tx.query("MATCH (a:Account) RETURN a.balance").await?;
+tx.commit().await?;
+
+// Rollback
+let tx = db.begin().await?;
+tx.execute("CREATE (:Temp {data: 'test'})").await?;
+tx.rollback().await?;  // Changes discarded
+```
+
+---
+
+## Bulk Operations
+
+```rust
+// Bulk insert vertices
+let properties = vec![
+    [("name", "Alice"), ("age", 30)].into(),
+    [("name", "Bob"), ("age", 25)].into(),
+    [("name", "Carol"), ("age", 35)].into(),
+];
+let vids = db.bulk_insert_vertices("Person", properties).await?;
+
+// Bulk insert edges
+let edges = vec![
+    (vids[0], vids[1], [("since", 2020)].into()),
+    (vids[1], vids[2], [("since", 2021)].into()),
+];
+db.bulk_insert_edges("KNOWS", edges).await?;
+```
+
+---
+
+## Snapshots and Time-Travel
+
+```rust
+// Create snapshot
+let snapshot_id = db.create_snapshot("v1.0").await?;
+
+// List snapshots
+let snapshots = db.list_snapshots().await?;
+for snap in snapshots {
+    println!("{}: {} ({})", snap.id, snap.name, snap.created_at);
+}
+
+// Time-travel query (read-only view at snapshot)
+let historical = Uni::open("./my_graph")
+    .at_snapshot(&snapshot_id)
+    .build()
+    .await?;
+let old_data = historical.query("MATCH (n) RETURN count(n)").await?;
+
+// Restore snapshot
+db.restore_snapshot(&snapshot_id).await?;
+```
+
+---
+
+## Persistence and Maintenance
+
+```rust
+// Flush L0 buffer to storage (required before vector search on new data)
+db.flush().await?;
+
+// Manual compaction
+let stats = db.compact_label("Person").await?;
+println!("Compacted {} vertices", stats.vertices_compacted);
+
+let stats = db.compact_edge_type("KNOWS").await?;
+println!("Compacted {} edges", stats.edges_compacted);
+
+// Wait for background compaction
+db.wait_for_compaction().await?;
+
+// Backup (for file-based databases)
+db.backup("./backup_path").await?;
+```
+
+---
+
+## Configuration
+
+```rust
+use uni::{UniConfig, CompactionConfig, WriteThrottleConfig};
+use std::time::Duration;
+
+let config = UniConfig {
+    cache_size: 1024 * 1024 * 1024,      // 1GB adjacency cache
+    parallelism: 8,                       // Worker threads
+    batch_size: 1024,                     // Query batch size
+    max_frontier_size: 100_000,           // Traversal limit
+    auto_flush_threshold: 10_000,         // Mutations before auto-flush
+    wal_enabled: true,                    // Write-ahead logging
+    query_timeout: Duration::from_secs(30),
+    max_query_memory: 1024 * 1024 * 1024, // 1GB per query
+    object_store_timeout: Duration::from_secs(30),
+    compaction: CompactionConfig {
+        enabled: true,
+        max_l1_runs: 4,
+        target_file_size: 128 * 1024 * 1024,
+        check_interval: Duration::from_secs(60),
+    },
+    throttle: WriteThrottleConfig {
+        soft_limit: 50_000,
+        hard_limit: 100_000,
+        delay: Duration::from_millis(10),
+    },
+};
+
+let db = Uni::open("./my_graph")
+    .config(config)
+    .build()
+    .await?;
+```
+
+---
+
+## Error Handling
+
+```rust
+use uni::{Result, UniError};
+
+match db.query("MATCH (n:Person) RETURN n").await {
+    Ok(results) => { /* process results */ }
+    Err(UniError::Parse { message, line, column, .. }) => {
+        eprintln!("Syntax error at {}:{}: {}", line, column, message);
+    }
+    Err(UniError::Query { message, query }) => {
+        eprintln!("Query failed: {} in '{}'", message, query);
+    }
+    Err(UniError::LabelNotFound { label }) => {
+        eprintln!("Label '{}' not defined in schema", label);
+    }
+    Err(UniError::TransactionConflict { message }) => {
+        eprintln!("Transaction conflict: {}", message);
+    }
+    Err(e) => {
+        eprintln!("Error: {}", e);
+    }
+}
+```
+
+---
+
+## Common Patterns
+
+### Knowledge Graph
+
+```rust
+db.schema()
+    .label("Entity")
+    .property("name", DataType::String)
+    .property("type", DataType::String)
+    .vector("embedding", 768)
+    .done()
+    .edge_type("RELATED_TO", &["Entity"], &["Entity"])
+    .property("relation", DataType::String)
+    .property("confidence", DataType::Float64)
+    .done()
+    .apply()
+    .await?;
+
+// Add entities and relationships
+db.execute("CREATE (:Entity {name: 'Albert Einstein', type: 'Person'})").await?;
+db.execute("CREATE (:Entity {name: 'Theory of Relativity', type: 'Theory'})").await?;
+db.execute("
+    MATCH (a:Entity {name: 'Albert Einstein'}), (b:Entity {name: 'Theory of Relativity'})
+    CREATE (a)-[:RELATED_TO {relation: 'developed', confidence: 1.0}]->(b)
+").await?;
+```
+
+### Social Network
+
+```rust
+db.schema()
+    .label("User")
+    .property("username", DataType::String)
+    .property("joined", DataType::DateTime)
+    .done()
+    .label("Post")
+    .property("content", DataType::String)
+    .property("created", DataType::DateTime)
+    .done()
+    .edge_type("FOLLOWS", &["User"], &["User"])
+    .edge_type("POSTED", &["User"], &["Post"])
+    .edge_type("LIKES", &["User"], &["Post"])
+    .apply()
+    .await?;
+
+// Find friends of friends
+let results = db.query("
+    MATCH (me:User {username: $user})-[:FOLLOWS]->()-[:FOLLOWS]->(fof:User)
+    WHERE NOT (me)-[:FOLLOWS]->(fof) AND me <> fof
+    RETURN DISTINCT fof.username
+    LIMIT 10
+")
+    .param("user", "alice")
+    .fetch_all()
+    .await?;
+```
+
+### RAG (Retrieval-Augmented Generation)
+
+```rust
+db.schema()
+    .label("Document")
+    .property("content", DataType::String)
+    .property("source", DataType::String)
+    .vector("embedding", 1536)
+    .index("embedding", IndexType::Vector(VectorIndexCfg {
+        algorithm: VectorAlgo::Hnsw { m: 16, ef_construction: 200 },
+        metric: VectorMetric::Cosine,
+    }))
+    .done()
+    .apply()
+    .await?;
+
+// Store document with embedding
+let embedding = embed_text("Document content here...");  // Your embedding function
+db.execute(&format!(
+    "CREATE (:Document {{content: $content, source: $source, embedding: {}}})",
+    format!("{:?}", embedding)
+))
+    .param("content", "Document content here...")
+    .param("source", "manual.pdf")
+    .fetch_all()
+    .await?;
+
+db.flush().await?;  // Required before vector search
+
+// Retrieve similar documents
+let query_embedding = embed_text("user question");
+let docs = db.vector_search_with("Document", "embedding", &query_embedding)
+    .k(5)
+    .threshold(0.7)
+    .fetch_nodes()
+    .await?;
+```
+
+### Supply Chain
+
+```rust
+db.schema()
+    .label("Product")
+    .property("sku", DataType::String)
+    .property("name", DataType::String)
+    .done()
+    .label("Supplier")
+    .property("name", DataType::String)
+    .property("country", DataType::String)
+    .done()
+    .label("Warehouse")
+    .property("location", DataType::String)
+    .property("capacity", DataType::Int64)
+    .done()
+    .edge_type("SUPPLIES", &["Supplier"], &["Product"])
+    .property("lead_time_days", DataType::Int32)
+    .property("cost", DataType::Float64)
+    .done()
+    .edge_type("STORED_AT", &["Product"], &["Warehouse"])
+    .property("quantity", DataType::Int64)
+    .done()
+    .apply()
+    .await?;
+
+// Find supply chain path
+let results = db.query("
+    MATCH path = (s:Supplier)-[:SUPPLIES*1..5]->(p:Product)-[:STORED_AT]->(w:Warehouse)
+    WHERE p.sku = $sku
+    RETURN s.name, w.location, length(path)
+")
+    .param("sku", "ABC123")
+    .fetch_all()
+    .await?;
+```
+
+---
+
+## Architecture Notes
+
+- **Storage**: Lance columnar format with CSR adjacency for fast traversal
+- **Concurrency**: Single-writer, multi-reader with snapshot isolation
+- **WAL**: Write-ahead logging for durability
+- **Indexes**: Lance-native vector indexes (HNSW, IVF-PQ) and scalar indexes
+- **Compaction**: LSM-style (L0 memory → L1 sorted runs → L2 merged)
+- **Object Store**: Supports local filesystem, S3, GCS via object_store crate
+
+---
+
+## Further Reading
+
+- Design document: `DESIGN.md`
+- Algorithm catalog: `ALGORITHM_GAPS.md`
+- API recommendations: `API_RECOMMENDATIONS.md`
