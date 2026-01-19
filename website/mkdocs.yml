@@ -1,0 +1,90 @@
+site_name: Uni Documentation
+site_description: The Embedded Multi-Model Graph Database - Graph, Vector, Document, and Columnar workloads unified
+site_url: https://rustic-ai.github.io/uni
+repo_url: https://github.com/rustic-ai/uni
+repo_name: rustic-ai/uni
+
+copyright: Copyright &copy; 2024-2026 Dragonscale Industries Inc. - Part of The Rustic Initiative
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Overview: getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Programming Guide: getting-started/programming-guide.md
+      - CLI Reference: getting-started/cli-reference.md
+  - Concepts:
+      - Overview: concepts/index.md
+      - Architecture: concepts/architecture.md
+      - Data Model: concepts/data-model.md
+      - Identity Model: concepts/identity.md
+      - CRDT Types: concepts/crdt-types.md
+      - Indexing: concepts/indexing.md
+      - Concurrency: concepts/concurrency.md
+  - Guides:
+      - Overview: guides/index.md
+      - Cypher Querying: guides/cypher-querying.md
+      - Vector Search: guides/vector-search.md
+      - Data Ingestion: guides/data-ingestion.md
+      - Schema Design: guides/schema-design.md
+      - Performance Tuning: guides/performance-tuning.md
+  - Internals:
+      - Overview: internals/index.md
+      - Vectorized Execution: internals/vectorized-execution.md
+      - Storage Engine: internals/storage-engine.md
+      - Query Planning: internals/query-planning.md
+      - API Gap Plan: internals/api-gap-plan.md
+      - Benchmarks: internals/benchmarks.md
+  - Reference:
+      - Overview: reference/index.md
+      - Rust API: reference/rust-api.md
+      - Python API: reference/python-api.md
+      - REST API: reference/rest-api.md
+      - Configuration: reference/configuration.md
+      - Feature Comparison: reference/feature-comparison.md
+      - Troubleshooting: reference/troubleshooting.md
+      - Glossary: reference/glossary.md
+  - API Docs:
+      - Rust API (rustdoc): api/rust/uni/index.html
+      - Python API (pdoc): api/python/index.html
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  # favicon: assets/images/favicon.png
+  # logo: assets/images/logo.svg
+  primary: custom
+
+extra_css:
+  - assets/stylesheets/theme.css
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+  - assets/javascripts/mermaid-init.js
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_div_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
