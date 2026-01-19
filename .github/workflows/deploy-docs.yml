@@ -48,7 +48,7 @@ jobs:
         run: |
           cd bindings/python
           maturin build --release
-          pip install target/wheels/*.whl
+          pip install ../../target/wheels/*.whl
 
       - name: Build Python documentation
         run: |
