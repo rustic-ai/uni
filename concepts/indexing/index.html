@@ -1,0 +1,3594 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The Embedded Multi-Model Graph Database - Graph, Vector, Document, and Columnar workloads unified">
+      
+      
+      
+        <link rel="canonical" href="https://rustic-ai.github.io/uni/concepts/indexing/">
+      
+      
+        <link rel="prev" href="../crdt-types/">
+      
+      
+        <link rel="next" href="../concurrency/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Indexing - Uni Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/theme.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#indexing" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Uni Documentation" class="md-header__button md-logo" aria-label="Uni Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Uni Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Indexing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/rustic-ai/uni" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rustic-ai/uni
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Uni Documentation" class="md-nav__button md-logo" aria-label="Uni Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Uni Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rustic-ai/uni" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rustic-ai/uni
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/programming-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Programming Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../identity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crdt-types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CRDT Types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#index-types-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Types Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vector-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vector Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Vector Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#supported-algorithms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Algorithms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#distance-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distance Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-vector-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating Vector Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hnsw-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HNSW Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ivf_pq-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IVF_PQ Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#querying-vector-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Querying Vector Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalar-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalar Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scalar Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#index-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-scalar-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating Scalar Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#composite-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Composite Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#index-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full-Text Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Full-Text Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#creating-full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating Full-Text Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tokenizers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tokenizers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#querying-full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Querying Full-Text Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON Full-Text Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON Full-Text Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-json-fts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use JSON FTS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-json-full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating JSON Full-Text Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#querying-with-contains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Querying with CONTAINS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-routing-priority" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Routing Priority
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-fts-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON FTS Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inverted-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inverted Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Inverted Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Cases
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-inverted-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating Inverted Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inverted-index-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inverted Index Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Patterns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-inverted-indexes-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Inverted Indexes Work
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-planner-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Planner Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#index-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Index Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#list-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#drop-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Drop Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rebuild-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rebuild Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#index-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Storage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#predicate-pushdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predicate Pushdown
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Predicate Pushdown">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pushable-predicates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pushable Predicates
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-create-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Create Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#index-sizing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Sizing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#index-maintenance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Maintenance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-comparison_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Comparison
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concurrency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concurrency
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/cypher-querying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cypher Querying
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/data-ingestion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Ingestion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/schema-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/performance-tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Tuning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/vectorized-execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vectorized Execution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/storage-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/query-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Query Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/api-gap-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Gap Plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/rust-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/feature-comparison.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Docs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Docs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rust/uni/index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API (rustdoc)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API (pdoc)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#index-types-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Types Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vector-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vector Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Vector Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#supported-algorithms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Algorithms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#distance-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distance Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-vector-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating Vector Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hnsw-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HNSW Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ivf_pq-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IVF_PQ Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#querying-vector-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Querying Vector Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalar-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalar Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scalar Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#index-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-scalar-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating Scalar Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#composite-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Composite Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#index-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full-Text Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Full-Text Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#creating-full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating Full-Text Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tokenizers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tokenizers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#querying-full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Querying Full-Text Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON Full-Text Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON Full-Text Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-json-fts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use JSON FTS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-json-full-text-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating JSON Full-Text Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#querying-with-contains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Querying with CONTAINS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-routing-priority" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Routing Priority
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-fts-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON FTS Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inverted-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inverted Indexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Inverted Indexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Cases
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-inverted-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating Inverted Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inverted-index-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inverted Index Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Patterns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-inverted-indexes-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Inverted Indexes Work
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-planner-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Planner Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#index-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Index Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#list-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#drop-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Drop Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rebuild-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rebuild Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#index-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Storage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#predicate-pushdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predicate Pushdown
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Predicate Pushdown">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pushable-predicates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pushable Predicates
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-create-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Create Indexes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#index-sizing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Sizing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#index-maintenance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Maintenance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-comparison_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Comparison
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="indexing">Indexing<a class="headerlink" href="#indexing" title="Permanent link">&para;</a></h1>
+<p>Indexes are critical for query performance in Uni. This guide covers all index types, their use cases, and configuration options.</p>
+<h2 id="index-types-overview">Index Types Overview<a class="headerlink" href="#index-types-overview" title="Permanent link">&para;</a></h2>
+<p>Uni supports five categories of indexes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│                                              INDEX TYPES                                                     │
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├─────────────────────┬─────────────────────┬──────────────────────┬──────────────────────┬────────────────────┤
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│    VECTOR INDEXES   │   SCALAR INDEXES    │   FULL-TEXT INDEXES  │   JSON FTS INDEXES   │  INVERTED INDEXES  │
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├─────────────────────┼─────────────────────┼──────────────────────┼──────────────────────┼────────────────────┤
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│ • HNSW              │ • BTree             │ • Inverted Index     │ • Lance Inverted     │ • Set Membership   │
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│ • IVF_PQ            │ • Hash              │ • Tokenizers         │ • BM25 Ranking       │ • ANY IN patterns  │
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│ • Flat (exact)      │ • Bitmap            │ • Scoring            │ • Path-Specific      │ • Tag filtering    │
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├─────────────────────┼─────────────────────┼──────────────────────┼──────────────────────┼────────────────────┤
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│ Similarity search   │ Exact/range queries │ Keyword search       │ JSON document search │ List membership    │
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│ Nearest neighbors   │ Equality checks     │ Text matching        │ CONTAINS operator    │ Multi-value props  │
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│ Embeddings          │ Sorting             │ Relevance ranking    │ Phrase search        │ Security filtering │
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>└─────────────────────┴─────────────────────┴──────────────────────┴──────────────────────┴────────────────────┘
+</code></pre></div>
+<hr />
+<h2 id="vector-indexes">Vector Indexes<a class="headerlink" href="#vector-indexes" title="Permanent link">&para;</a></h2>
+<p>Vector indexes enable fast approximate nearest neighbor (ANN) search on embedding columns.</p>
+<h3 id="supported-algorithms">Supported Algorithms<a class="headerlink" href="#supported-algorithms" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Description</th>
+<th>Trade-offs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>HNSW</strong></td>
+<td>Hierarchical Navigable Small World</td>
+<td>Best recall, higher memory</td>
+</tr>
+<tr>
+<td><strong>IVF_PQ</strong></td>
+<td>Inverted File + Product Quantization</td>
+<td>Lower memory, good recall</td>
+</tr>
+<tr>
+<td><strong>Flat</strong></td>
+<td>Exact brute-force search</td>
+<td>Perfect recall, O(n) speed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="distance-metrics">Distance Metrics<a class="headerlink" href="#distance-metrics" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Formula</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cosine</strong></td>
+<td>1 - (A·B)/(‖A‖‖B‖)</td>
+<td>Normalized embeddings</td>
+</tr>
+<tr>
+<td><strong>L2</strong></td>
+<td>√Σ(aᵢ-bᵢ)²</td>
+<td>Euclidean distance</td>
+</tr>
+<tr>
+<td><strong>Dot</strong></td>
+<td>-A·B</td>
+<td>Inner product (unnormalized)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="creating-vector-indexes">Creating Vector Indexes<a class="headerlink" href="#creating-vector-indexes" title="Permanent link">&para;</a></h3>
+<p><strong>Via Cypher:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="n">VECTOR</span><span class="w"> </span><span class="n">INDEX</span><span class="w"> </span><span class="n">paper_embeddings</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="n">Paper</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">ON</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">embedding</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">OPTIONS</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="n">index_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;hnsw&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="n">metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cosine&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="n">m</span><span class="p">:</span><span class="w"> </span><span class="m">16</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="n">ef_construction</span><span class="p">:</span><span class="w"> </span><span class="m">200</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Via CLI:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uni<span class="w"> </span>index<span class="w"> </span>create<span class="w"> </span>vector<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>--name<span class="w"> </span>paper_embeddings<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>--label<span class="w"> </span>Paper<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span>--property<span class="w"> </span>embedding<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span>--type<span class="w"> </span>hnsw<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span>--metric<span class="w"> </span>cosine<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span>--m<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span>--ef-construction<span class="w"> </span><span class="m">200</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span>--path<span class="w"> </span>./storage
+</code></pre></div>
+<h3 id="hnsw-configuration">HNSW Configuration<a class="headerlink" href="#hnsw-configuration" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>m</code></td>
+<td>16</td>
+<td>Max connections per layer (higher = better recall, more memory)</td>
+</tr>
+<tr>
+<td><code>ef_construction</code></td>
+<td>200</td>
+<td>Build-time search width (higher = better index, slower build)</td>
+</tr>
+<tr>
+<td><code>ef_search</code></td>
+<td>100</td>
+<td>Query-time search width (higher = better recall, slower query)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tuning Guidelines:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>┌─────────────────────────────────────────────────────────────────────────────┐
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>│                           HNSW Tuning Guide                                  │
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>├─────────────────────────────────────────────────────────────────────────────┤
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>│                                                                             │
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>│   Recall vs Speed:                                                          │
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>│   ────────────────                                                          │
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>│   Higher ef_search → Better recall, slower queries                          │
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>│   Lower ef_search  → Faster queries, may miss results                       │
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>│                                                                             │
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>│   Memory vs Recall:                                                         │
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>│   ─────────────────                                                         │
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>│   Higher m → More connections, better recall, more memory                   │
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>│   Lower m  → Less memory, potentially lower recall                          │
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>│                                                                             │
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>│   Recommended Starting Points:                                              │
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>│   ────────────────────────────                                              │
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>│   Small dataset (&lt;100K):  m=16, ef_construction=100, ef_search=50           │
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>│   Medium (100K-1M):       m=32, ef_construction=200, ef_search=100          │
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>│   Large (&gt;1M):            m=48, ef_construction=400, ef_search=150          │
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>│                                                                             │
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>└─────────────────────────────────────────────────────────────────────────────┘
+</code></pre></div>
+<h3 id="ivf_pq-configuration">IVF_PQ Configuration<a class="headerlink" href="#ivf_pq-configuration" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>num_partitions</code></td>
+<td>256</td>
+<td>Number of IVF clusters (√n is a good starting point)</td>
+</tr>
+<tr>
+<td><code>num_sub_vectors</code></td>
+<td>8</td>
+<td>PQ compression factor (dimension / sub_vectors = bytes per vector)</td>
+</tr>
+<tr>
+<td><code>num_probes</code></td>
+<td>20</td>
+<td>Clusters to search at query time</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="n">VECTOR</span><span class="w"> </span><span class="n">INDEX</span><span class="w"> </span><span class="n">product_embeddings</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="n">Product</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">ON</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">embedding</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">OPTIONS</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="n">index_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ivf_pq&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="n">metric</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cosine&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="n">num_partitions</span><span class="p">:</span><span class="w"> </span><span class="m">1024</span><span class="p">,</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="n">num_sub_vectors</span><span class="p">:</span><span class="w"> </span><span class="m">32</span><span class="p">,</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="n">num_probes</span><span class="p">:</span><span class="w"> </span><span class="m">50</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="querying-vector-indexes">Querying Vector Indexes<a class="headerlink" href="#querying-vector-indexes" title="Permanent link">&para;</a></h3>
+<p><strong>Procedure Call:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">CALL</span><span class="w"> </span><span class="n">db</span><span class="p">.</span><span class="n">idx</span><span class="p">.</span><span class="n">vector</span><span class="p">.</span><span class="n">query</span><span class="p">(</span><span class="s">&#39;Paper&#39;</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;embedding&#39;</span><span class="p">,</span><span class="w"> </span><span class="err">$</span><span class="n">query_vector</span><span class="p">,</span><span class="w"> </span><span class="m">10</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">YIELD</span><span class="w"> </span><span class="n">node</span><span class="p">,</span><span class="w"> </span><span class="n">distance</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">RETURN</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="n">title</span><span class="p">,</span><span class="w"> </span><span class="n">distance</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">distance</span>
+</code></pre></div>
+<p><strong>With Threshold:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">CALL</span><span class="w"> </span><span class="n">db</span><span class="p">.</span><span class="n">idx</span><span class="p">.</span><span class="n">vector</span><span class="p">.</span><span class="n">query</span><span class="p">(</span><span class="s">&#39;Paper&#39;</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;embedding&#39;</span><span class="p">,</span><span class="w"> </span><span class="err">$</span><span class="n">query_vector</span><span class="p">,</span><span class="w"> </span><span class="m">100</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">.</span><span class="m">2</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">YIELD</span><span class="w"> </span><span class="n">node</span><span class="p">,</span><span class="w"> </span><span class="n">distance</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">distance</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="m">0</span><span class="p">.</span><span class="m">15</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">RETURN</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="n">title</span><span class="p">,</span><span class="w"> </span><span class="n">distance</span>
+</code></pre></div>
+<p><strong>Hybrid (Vector + Graph):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">CALL</span><span class="w"> </span><span class="n">db</span><span class="p">.</span><span class="n">idx</span><span class="p">.</span><span class="n">vector</span><span class="p">.</span><span class="n">query</span><span class="p">(</span><span class="s">&#39;Paper&#39;</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;embedding&#39;</span><span class="p">,</span><span class="w"> </span><span class="err">$</span><span class="n">query_vector</span><span class="p">,</span><span class="w"> </span><span class="m">10</span><span class="p">)</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">YIELD</span><span class="w"> </span><span class="n">node</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">paper</span><span class="p">,</span><span class="w"> </span><span class="n">distance</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">MATCH</span><span class="w"> </span><span class="p">(</span><span class="n">paper</span><span class="p">)</span><span class="o">-[</span><span class="p">:</span><span class="n">AUTHORED_BY</span><span class="o">]-&gt;</span><span class="p">(</span><span class="n">author</span><span class="p">:</span><span class="n">Author</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">RETURN</span><span class="w"> </span><span class="n">paper</span><span class="p">.</span><span class="n">title</span><span class="p">,</span><span class="w"> </span><span class="n">author</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">distance</span>
+</code></pre></div>
+<hr />
+<h2 id="scalar-indexes">Scalar Indexes<a class="headerlink" href="#scalar-indexes" title="Permanent link">&para;</a></h2>
+<p>Scalar indexes optimize exact match and range queries on primitive properties.</p>
+<h3 id="index-types">Index Types<a class="headerlink" href="#index-types" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Operations</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>BTree</strong></td>
+<td><code>=</code>, <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>, <code>BETWEEN</code></td>
+<td>General purpose, range queries</td>
+</tr>
+<tr>
+<td><strong>Hash</strong></td>
+<td><code>=</code> only</td>
+<td>High-cardinality exact match</td>
+</tr>
+<tr>
+<td><strong>Bitmap</strong></td>
+<td><code>=</code>, <code>IN</code></td>
+<td>Low-cardinality categorical</td>
+</tr>
+</tbody>
+</table>
+<h3 id="creating-scalar-indexes">Creating Scalar Indexes<a class="headerlink" href="#creating-scalar-indexes" title="Permanent link">&para;</a></h3>
+<p><strong>BTree Index (default):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">author_email</span><span class="w"> </span><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="n">Author</span><span class="p">)</span><span class="w"> </span><span class="n">ON</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">email</span>
+</code></pre></div>
+<p><strong>Explicit Type:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">paper_year</span><span class="w"> </span><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="n">Paper</span><span class="p">)</span><span class="w"> </span><span class="n">ON</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">year</span><span class="w"> </span><span class="n">OPTIONS</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;btree&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">user_country</span><span class="w"> </span><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">u</span><span class="p">:</span><span class="n">User</span><span class="p">)</span><span class="w"> </span><span class="n">ON</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">country</span><span class="w"> </span><span class="n">OPTIONS</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;bitmap&quot;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p><strong>Via CLI:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>uni<span class="w"> </span>index<span class="w"> </span>create<span class="w"> </span>scalar<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span>--name<span class="w"> </span>paper_year<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span>--label<span class="w"> </span>Paper<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span>--property<span class="w"> </span>year<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span>--type<span class="w"> </span>btree<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span>--path<span class="w"> </span>./storage
+</code></pre></div>
+<h3 id="composite-indexes">Composite Indexes<a class="headerlink" href="#composite-indexes" title="Permanent link">&para;</a></h3>
+<p>Index multiple properties together:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">paper_venue_year</span><span class="w"> </span><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="n">Paper</span><span class="p">)</span><span class="w"> </span><span class="n">ON</span><span class="w"> </span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">venue</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">year</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Query utilization:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1">// Uses index (prefix match)</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">MATCH</span><span class="w"> </span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="n">Paper</span><span class="p">)</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">venue</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&#39;NeurIPS&#39;</span><span class="w"> </span><span class="n">AND</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">year</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="m">2020</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1">// Uses index (first column only)</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="k">MATCH</span><span class="w"> </span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="n">Paper</span><span class="p">)</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">venue</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&#39;NeurIPS&#39;</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1">// Does NOT use index (missing prefix)</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="k">MATCH</span><span class="w"> </span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="n">Paper</span><span class="p">)</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">year</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="m">2020</span>
+</code></pre></div>
+<h3 id="index-selection">Index Selection<a class="headerlink" href="#index-selection" title="Permanent link">&para;</a></h3>
+<p>Uni's query planner automatically selects indexes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>Query: MATCH (p:Paper) WHERE p.year &gt; 2020 AND p.venue = &#39;NeurIPS&#39;
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>Plan:
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>├── Project [p.title]
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>│   └── Scan [:Paper]
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>│         ↳ Index: paper_venue_year (venue=&#39;NeurIPS&#39;, year&gt;2020)
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>│         ↳ Predicate Pushdown: venue = &#39;NeurIPS&#39; AND year &gt; 2020
+</code></pre></div>
+<hr />
+<h2 id="full-text-indexes">Full-Text Indexes<a class="headerlink" href="#full-text-indexes" title="Permanent link">&para;</a></h2>
+<p>Full-text indexes enable keyword search within text properties.</p>
+<h3 id="creating-full-text-indexes">Creating Full-Text Indexes<a class="headerlink" href="#creating-full-text-indexes" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="n">FULLTEXT</span><span class="w"> </span><span class="n">INDEX</span><span class="w"> </span><span class="n">paper_search</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="n">Paper</span><span class="p">)</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">ON</span><span class="w"> </span><span class="n">EACH</span><span class="w"> </span><span class="o">[</span><span class="n">p</span><span class="p">.</span><span class="n">title</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">abstract</span><span class="o">]</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">OPTIONS</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span><span class="n">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;standard&quot;</span><span class="p">,</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span><span class="n">min_token_length</span><span class="p">:</span><span class="w"> </span><span class="m">2</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="tokenizers">Tokenizers<a class="headerlink" href="#tokenizers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tokenizer</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>standard</code></td>
+<td>Unicode word boundaries</td>
+<td>"Hello, World!" → ["hello", "world"]</td>
+</tr>
+<tr>
+<td><code>whitespace</code></td>
+<td>Split on whitespace only</td>
+<td>"Hello, World!" → ["hello,", "world!"]</td>
+</tr>
+<tr>
+<td><code>ngram</code></td>
+<td>Character n-grams</td>
+<td>"cat" → ["ca", "at"] (bigrams)</td>
+</tr>
+<tr>
+<td><code>keyword</code></td>
+<td>No tokenization</td>
+<td>"Hello World" → ["hello world"]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="querying-full-text-indexes">Querying Full-Text Indexes<a class="headerlink" href="#querying-full-text-indexes" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">CALL</span><span class="w"> </span><span class="n">db</span><span class="p">.</span><span class="n">index</span><span class="p">.</span><span class="n">fulltext</span><span class="p">.</span><span class="n">queryNodes</span><span class="p">(</span><span class="s">&#39;paper_search&#39;</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;transformer attention&#39;</span><span class="p">)</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">YIELD</span><span class="w"> </span><span class="n">node</span><span class="p">,</span><span class="w"> </span><span class="n">score</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">RETURN</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="n">title</span><span class="p">,</span><span class="w"> </span><span class="n">score</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">score</span><span class="w"> </span><span class="k">DESC</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="k">LIMIT</span><span class="w"> </span><span class="m">10</span>
+</code></pre></div>
+<p><strong>Boolean Operators:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1">// AND (default)</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="s">&#39;transformer attention&#39;</span><span class="w">  </span><span class="c1">// Both terms required</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1">// OR</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="s">&#39;transformer OR attention&#39;</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1">// NOT</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="s">&#39;transformer NOT vision&#39;</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="c1">// Phrase</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="s">&#39;&quot;attention mechanism&quot;&#39;</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="c1">// Wildcard</span>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="s">&#39;transform*&#39;</span>
+</code></pre></div>
+<hr />
+<h2 id="json-full-text-indexes">JSON Full-Text Indexes<a class="headerlink" href="#json-full-text-indexes" title="Permanent link">&para;</a></h2>
+<p>JSON Full-Text indexes enable BM25-based full-text search on JSON document columns, leveraging Lance's native inverted index.</p>
+<h3 id="when-to-use-json-fts">When to Use JSON FTS<a class="headerlink" href="#when-to-use-json-fts" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Use Case</th>
+<th>Index Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Search within JSON documents</td>
+<td>JSON Full-Text Index</td>
+</tr>
+<tr>
+<td>Keyword/phrase search in text fields</td>
+<td>JSON Full-Text Index</td>
+</tr>
+<tr>
+<td>Exact JSON path matching</td>
+<td>JsonPath Index</td>
+</tr>
+<tr>
+<td>Equality filters on scalar fields</td>
+<td>Scalar Index</td>
+</tr>
+</tbody>
+</table>
+<h3 id="creating-json-full-text-indexes">Creating JSON Full-Text Indexes<a class="headerlink" href="#creating-json-full-text-indexes" title="Permanent link">&para;</a></h3>
+<p><strong>Via Cypher:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="n">JSON</span><span class="w"> </span><span class="n">FULLTEXT</span><span class="w"> </span><span class="n">INDEX</span><span class="w"> </span><span class="n">article_fts</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="n">Article</span><span class="p">)</span><span class="w"> </span><span class="n">ON</span><span class="w"> </span><span class="err">_</span><span class="n">doc</span>
+</code></pre></div>
+<p><strong>With Options:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="n">JSON</span><span class="w"> </span><span class="n">FULLTEXT</span><span class="w"> </span><span class="n">INDEX</span><span class="w"> </span><span class="n">article_fts</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="n">Article</span><span class="p">)</span><span class="w"> </span><span class="n">ON</span><span class="w"> </span><span class="err">_</span><span class="n">doc</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="n">OPTIONS</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">with_positions</span><span class="p">:</span><span class="w"> </span><span class="k">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>The <code>with_positions</code> option enables phrase search by storing term positions.</p>
+<p><strong>If Not Exists:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="n">JSON</span><span class="w"> </span><span class="n">FULLTEXT</span><span class="w"> </span><span class="n">INDEX</span><span class="w"> </span><span class="n">article_fts</span><span class="w"> </span><span class="n">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="n">EXISTS</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="n">Article</span><span class="p">)</span><span class="w"> </span><span class="n">ON</span><span class="w"> </span><span class="err">_</span><span class="n">doc</span>
+</code></pre></div>
+<h3 id="querying-with-contains">Querying with CONTAINS<a class="headerlink" href="#querying-with-contains" title="Permanent link">&para;</a></h3>
+<p>Use the <code>CONTAINS</code> operator to perform full-text search on FTS-indexed columns:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1">// Basic full-text search</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">MATCH</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="n">Article</span><span class="p">)</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="err">_</span><span class="n">doc</span><span class="w"> </span><span class="n">CONTAINS</span><span class="w"> </span><span class="s">&#39;graph database&#39;</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="k">RETURN</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">title</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="c1">// Path-specific search (searches within a JSON path)</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="k">MATCH</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="n">Article</span><span class="p">)</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="err">_</span><span class="n">doc</span><span class="p">.</span><span class="n">title</span><span class="w"> </span><span class="n">CONTAINS</span><span class="w"> </span><span class="s">&#39;graph&#39;</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="k">RETURN</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">title</span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="c1">// Combined with exact matching</span>
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="k">MATCH</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="n">Article</span><span class="p">)</span>
+<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="err">_</span><span class="n">doc</span><span class="p">.</span><span class="n">title</span><span class="w"> </span><span class="n">CONTAINS</span><span class="w"> </span><span class="s">&#39;graph&#39;</span><span class="w"> </span><span class="n">AND</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">status</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&#39;published&#39;</span>
+<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="k">RETURN</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">title</span>
+</code></pre></div>
+<h3 id="query-routing-priority">Query Routing Priority<a class="headerlink" href="#query-routing-priority" title="Permanent link">&para;</a></h3>
+<p>The query planner routes predicates to the most efficient index:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>1. _uid = &#39;xxx&#39;           → UidIndex (O(1) lookup)
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>2. column CONTAINS &#39;term&#39; → Lance FTS (BM25 ranking)
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>3. path = &#39;exact&#39;         → JsonPathIndex (exact match)
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>4. Pushable predicates    → Lance scan filter
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>5. Else                   → Residual (post-load filter)
+</code></pre></div>
+<h3 id="json-fts-configuration">JSON FTS Configuration<a class="headerlink" href="#json-fts-configuration" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>with_positions</code></td>
+<td>false</td>
+<td>Enable phrase search (stores term positions)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h3>
+<p>JSON Full-Text indexes use Lance's inverted index with triplet tokenization:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>Document: { &quot;title&quot;: &quot;Graph Databases&quot;, &quot;year&quot;: 2024 }
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>         ↓
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>Tokens:  (title, string, &quot;graph&quot;), (title, string, &quot;databases&quot;), (year, int, 2024)
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>         ↓
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>Query:   title:graph → Matches documents with &quot;graph&quot; in title path
+</code></pre></div>
+<hr />
+<h2 id="inverted-indexes">Inverted Indexes<a class="headerlink" href="#inverted-indexes" title="Permanent link">&para;</a></h2>
+<p>Inverted indexes enable efficient filtering on <code>List&lt;String&gt;</code> properties, ideal for tag-based access control and multi-value attribute queries.</p>
+<h3 id="use-cases">Use Cases<a class="headerlink" href="#use-cases" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Use Case</th>
+<th>Query Pattern</th>
+<th>Benefit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tag filtering</strong></td>
+<td><code>ANY(tag IN d.tags WHERE tag IN $allowed)</code></td>
+<td>O(k) vs O(n) scan</td>
+</tr>
+<tr>
+<td><strong>Security labels</strong></td>
+<td>Filter by granted access tags</td>
+<td>Multi-tenant filtering</td>
+</tr>
+<tr>
+<td><strong>Categories</strong></td>
+<td>Documents in multiple categories</td>
+<td>Efficient set intersection</td>
+</tr>
+<tr>
+<td><strong>Skills matching</strong></td>
+<td>Users with any required skill</td>
+<td>Fast membership checks</td>
+</tr>
+</tbody>
+</table>
+<h3 id="creating-inverted-indexes">Creating Inverted Indexes<a class="headerlink" href="#creating-inverted-indexes" title="Permanent link">&para;</a></h3>
+<p><strong>Via Schema:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">&quot;indexes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">    </span><span class="nt">&quot;document_tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;inverted&quot;</span><span class="p">,</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">      </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Document&quot;</span><span class="p">,</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">      </span><span class="nt">&quot;property&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tags&quot;</span><span class="p">,</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="w">      </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">        </span><span class="nt">&quot;normalize&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="w">        </span><span class="nt">&quot;max_terms_per_doc&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="w">      </span><span class="p">}</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Via Cypher:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="n">INVERTED</span><span class="w"> </span><span class="n">INDEX</span><span class="w"> </span><span class="n">document_tags</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="n">FOR</span><span class="w"> </span><span class="p">(</span><span class="n">d</span><span class="p">:</span><span class="n">Document</span><span class="p">)</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="n">ON</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">tags</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="n">OPTIONS</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">normalize</span><span class="p">:</span><span class="w"> </span><span class="k">true</span><span class="p">,</span><span class="w"> </span><span class="n">max_terms_per_doc</span><span class="p">:</span><span class="w"> </span><span class="m">10000</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p><strong>Via Rust API:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="n">db</span><span class="p">.</span><span class="n">schema</span><span class="p">()</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">    </span><span class="p">.</span><span class="n">label</span><span class="p">(</span><span class="s">&quot;Document&quot;</span><span class="p">)</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">        </span><span class="p">.</span><span class="n">property</span><span class="p">(</span><span class="s">&quot;tags&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">DataType</span><span class="p">::</span><span class="n">List</span><span class="p">(</span><span class="nb">Box</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">DataType</span><span class="p">::</span><span class="nb">String</span><span class="p">)))</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">        </span><span class="p">.</span><span class="n">index</span><span class="p">(</span><span class="s">&quot;tags&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">IndexType</span><span class="p">::</span><span class="n">Inverted</span><span class="p">(</span><span class="n">InvertedIndexConfig</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">            </span><span class="n">normalize</span><span class="p">:</span><span class="w"> </span><span class="nc">true</span><span class="p">,</span>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="w">            </span><span class="n">max_terms_per_doc</span><span class="p">:</span><span class="w"> </span><span class="mi">10_000</span><span class="p">,</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="w">        </span><span class="p">}))</span>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="w">    </span><span class="p">.</span><span class="n">apply</span><span class="p">()</span>
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="inverted-index-configuration">Inverted Index Configuration<a class="headerlink" href="#inverted-index-configuration" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>normalize</code></td>
+<td><code>true</code></td>
+<td>Lowercase and trim whitespace on terms</td>
+</tr>
+<tr>
+<td><code>max_terms_per_doc</code></td>
+<td><code>10_000</code></td>
+<td>Maximum terms per document (DoS protection)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="query-patterns">Query Patterns<a class="headerlink" href="#query-patterns" title="Permanent link">&para;</a></h3>
+<p><strong>ANY IN pattern (optimized):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1">// Finds documents with ANY of the specified tags</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="k">MATCH</span><span class="w"> </span><span class="p">(</span><span class="n">d</span><span class="p">:</span><span class="n">Document</span><span class="p">)</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="k">WHERE</span><span class="w"> </span><span class="k">ANY</span><span class="p">(</span><span class="n">tag</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">tags</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">tag</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="o">[</span><span class="s">&#39;public&#39;</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;team:eng&#39;</span><span class="o">]</span><span class="p">)</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="k">RETURN</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">title</span>
+</code></pre></div>
+<p><strong>With session variables (multi-tenant):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1">// Security filtering with session-based permissions</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="k">MATCH</span><span class="w"> </span><span class="p">(</span><span class="n">d</span><span class="p">:</span><span class="n">Document</span><span class="p">)</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">tenant_id</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="err">$</span><span class="n">session</span><span class="p">.</span><span class="n">tenant_id</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">  </span><span class="n">AND</span><span class="w"> </span><span class="k">ANY</span><span class="p">(</span><span class="n">tag</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">tags</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">tag</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="err">$</span><span class="n">session</span><span class="p">.</span><span class="n">granted_tags</span><span class="p">)</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="k">RETURN</span><span class="w"> </span><span class="n">d</span>
+</code></pre></div>
+<h3 id="how-inverted-indexes-work">How Inverted Indexes Work<a class="headerlink" href="#how-inverted-indexes-work" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>Document 1: tags = [&#39;rust&#39;, &#39;database&#39;]
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>Document 2: tags = [&#39;python&#39;, &#39;ml&#39;]
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>Document 3: tags = [&#39;rust&#39;, &#39;ml&#39;]
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>         ↓
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>Inverted Index (term → VID list):
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>  &#39;rust&#39;     → [vid_1, vid_3]
+<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>  &#39;database&#39; → [vid_1]
+<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>  &#39;python&#39;   → [vid_2]
+<a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>  &#39;ml&#39;       → [vid_2, vid_3]
+<a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a>         ↓
+<a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a>Query: ANY(tag IN d.tags WHERE tag IN [&#39;rust&#39;, &#39;python&#39;])
+<a id="__codelineno-28-12" name="__codelineno-28-12" href="#__codelineno-28-12"></a>Result: Union of &#39;rust&#39; and &#39;python&#39; → [vid_1, vid_2, vid_3]
+</code></pre></div>
+<h3 id="query-planner-integration">Query Planner Integration<a class="headerlink" href="#query-planner-integration" title="Permanent link">&para;</a></h3>
+<p>When an inverted index exists on a <code>List&lt;String&gt;</code> property, the query planner automatically rewrites <code>ANY IN</code> patterns to use index lookups:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>Query: MATCH (d:Document) WHERE ANY(tag IN d.tags WHERE tag IN $allowed) RETURN d
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>Without Index:
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>├─ Full Scan: Document
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>└─ Filter: ANY(tag IN d.tags WHERE tag IN $allowed)  // O(n × m)
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>
+<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a>With Inverted Index:
+<a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>├─ Inverted Index Lookup: tags IN $allowed           // O(k)
+<a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a>└─ Fetch: Document properties
+</code></pre></div>
+<h3 id="performance-comparison">Performance Comparison<a class="headerlink" href="#performance-comparison" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Without Index</th>
+<th>With Index</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1M docs, 10 tags each, query 3 tags</td>
+<td>~5s scan</td>
+<td>~10ms</td>
+<td>500x</td>
+</tr>
+<tr>
+<td>100K docs, security filter</td>
+<td>~500ms</td>
+<td>~5ms</td>
+<td>100x</td>
+</tr>
+<tr>
+<td>Multi-value category filter</td>
+<td>~1s</td>
+<td>~15ms</td>
+<td>67x</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="index-management">Index Management<a class="headerlink" href="#index-management" title="Permanent link">&para;</a></h2>
+<h3 id="list-indexes">List Indexes<a class="headerlink" href="#list-indexes" title="Permanent link">&para;</a></h3>
+<p><strong>Cypher:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="n">SHOW</span><span class="w"> </span><span class="n">INDEXES</span>
+</code></pre></div>
+<p><strong>CLI:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>uni<span class="w"> </span>index<span class="w"> </span>list<span class="w"> </span>--path<span class="w"> </span>./storage
+</code></pre></div>
+<p>Output:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>┌─────────────────────┬────────┬─────────┬──────────┬───────────┐
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>│ Name                │ Type   │ Label   │ Property │ Status    │
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>├─────────────────────┼────────┼─────────┼──────────┼───────────┤
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>│ paper_embeddings    │ Vector │ Paper   │ embedding│ READY     │
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>│ paper_year          │ BTree  │ Paper   │ year     │ READY     │
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>│ author_email        │ BTree  │ Author  │ email    │ BUILDING  │
+<a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a>│ paper_search        │ FTS    │ Paper   │ [title,  │ READY     │
+<a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a>│                     │        │         │ abstract]│           │
+<a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a>└─────────────────────┴────────┴─────────┴──────────┴───────────┘
+</code></pre></div></p>
+<h3 id="drop-indexes">Drop Indexes<a class="headerlink" href="#drop-indexes" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="n">DROP</span><span class="w"> </span><span class="n">INDEX</span><span class="w"> </span><span class="n">paper_year</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>uni<span class="w"> </span>index<span class="w"> </span>drop<span class="w"> </span>paper_year<span class="w"> </span>--path<span class="w"> </span>./storage
+</code></pre></div>
+<h3 id="rebuild-indexes">Rebuild Indexes<a class="headerlink" href="#rebuild-indexes" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>uni<span class="w"> </span>index<span class="w"> </span>rebuild<span class="w"> </span>paper_embeddings<span class="w"> </span>--path<span class="w"> </span>./storage
+</code></pre></div>
+<hr />
+<h2 id="index-storage">Index Storage<a class="headerlink" href="#index-storage" title="Permanent link">&para;</a></h2>
+<p>Indexes are stored within the Lance dataset structure:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>storage/
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>├── vertices_Paper/
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>│   ├── data/
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a>│   │   └── *.lance
+<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a>│   ├── _indices/                    # Lance native indexes
+<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a>│   │   └── embedding_idx-uuid/      # Vector index
+<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a>│   │       ├── index.idx
+<a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a>│   │       └── aux/
+<a id="__codelineno-36-9" name="__codelineno-36-9" href="#__codelineno-36-9"></a>│   └── _versions/
+<a id="__codelineno-36-10" name="__codelineno-36-10" href="#__codelineno-36-10"></a>└── indexes/
+<a id="__codelineno-36-11" name="__codelineno-36-11" href="#__codelineno-36-11"></a>    ├── scalar_paper_year/           # Separate scalar index
+<a id="__codelineno-36-12" name="__codelineno-36-12" href="#__codelineno-36-12"></a>    │   └── index.lance
+<a id="__codelineno-36-13" name="__codelineno-36-13" href="#__codelineno-36-13"></a>    └── fulltext_paper_search/       # Full-text index
+<a id="__codelineno-36-14" name="__codelineno-36-14" href="#__codelineno-36-14"></a>        └── index/
+</code></pre></div>
+<hr />
+<h2 id="predicate-pushdown">Predicate Pushdown<a class="headerlink" href="#predicate-pushdown" title="Permanent link">&para;</a></h2>
+<p>Indexes integrate with Uni's predicate pushdown optimization:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>┌─────────────────────────────────────────────────────────────────────────────┐
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>│                        PREDICATE PUSHDOWN FLOW                              │
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>├─────────────────────────────────────────────────────────────────────────────┤
+<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a>│                                                                             │
+<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>│   Query: MATCH (p:Paper) WHERE p.year &gt; 2020 AND p.title CONTAINS &#39;AI&#39;     │
+<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a>│                                                                             │
+<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a>│   1. Predicate Analysis                                                     │
+<a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a>│      ├── p.year &gt; 2020      → Pushable (scalar index or Lance filter)      │
+<a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a>│      └── p.title CONTAINS   → Residual (post-load filter)                  │
+<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a>│                                                                             │
+<a id="__codelineno-37-11" name="__codelineno-37-11" href="#__codelineno-37-11"></a>│   2. Index Selection                                                        │
+<a id="__codelineno-37-12" name="__codelineno-37-12" href="#__codelineno-37-12"></a>│      └── paper_year index available? Yes → Use index scan                  │
+<a id="__codelineno-37-13" name="__codelineno-37-13" href="#__codelineno-37-13"></a>│                                                                             │
+<a id="__codelineno-37-14" name="__codelineno-37-14" href="#__codelineno-37-14"></a>│   3. Execution                                                              │
+<a id="__codelineno-37-15" name="__codelineno-37-15" href="#__codelineno-37-15"></a>│      ├── Index Scan: year &gt; 2020 → VIDs [v1, v2, v3, ...]                  │
+<a id="__codelineno-37-16" name="__codelineno-37-16" href="#__codelineno-37-16"></a>│      ├── Load Properties: title for filtered VIDs                          │
+<a id="__codelineno-37-17" name="__codelineno-37-17" href="#__codelineno-37-17"></a>│      └── Residual Filter: title CONTAINS &#39;AI&#39;                              │
+<a id="__codelineno-37-18" name="__codelineno-37-18" href="#__codelineno-37-18"></a>│                                                                             │
+<a id="__codelineno-37-19" name="__codelineno-37-19" href="#__codelineno-37-19"></a>└─────────────────────────────────────────────────────────────────────────────┘
+</code></pre></div>
+<h3 id="pushable-predicates">Pushable Predicates<a class="headerlink" href="#pushable-predicates" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Predicate</th>
+<th>Index Type</th>
+<th>Pushed?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>p.x = 5</code></td>
+<td>BTree, Hash</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>p.x &gt; 5</code></td>
+<td>BTree</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>p.x IN [1,2,3]</code></td>
+<td>BTree, Bitmap</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>p.x IS NULL</code></td>
+<td>BTree</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>p._doc CONTAINS 'foo'</code></td>
+<td>JSON FTS</td>
+<td>Yes (if FTS-indexed)</td>
+</tr>
+<tr>
+<td><code>p.x CONTAINS 'foo'</code></td>
+<td>None</td>
+<td>No (residual, if not FTS-indexed)</td>
+</tr>
+<tr>
+<td><code>p.x STARTS WITH 'foo'</code></td>
+<td>BTree</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td><code>func(p.x) = 5</code></td>
+<td>None</td>
+<td>No (residual)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
+<h3 id="when-to-create-indexes">When to Create Indexes<a class="headerlink" href="#when-to-create-indexes" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>✓ CREATE INDEX when:
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>  • Property appears in WHERE clauses frequently
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>  • Property is used for JOIN conditions
+<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a>  • Property is used in ORDER BY
+<a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a>  • High-cardinality exact match queries (Hash)
+<a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a>  • Range queries on numeric/date properties (BTree)
+<a id="__codelineno-38-7" name="__codelineno-38-7" href="#__codelineno-38-7"></a>  • Low-cardinality categorical filters (Bitmap)
+<a id="__codelineno-38-8" name="__codelineno-38-8" href="#__codelineno-38-8"></a>
+<a id="__codelineno-38-9" name="__codelineno-38-9" href="#__codelineno-38-9"></a>✗ AVOID INDEX when:
+<a id="__codelineno-38-10" name="__codelineno-38-10" href="#__codelineno-38-10"></a>  • Property rarely queried
+<a id="__codelineno-38-11" name="__codelineno-38-11" href="#__codelineno-38-11"></a>  • Very small dataset (&lt;1000 rows)
+<a id="__codelineno-38-12" name="__codelineno-38-12" href="#__codelineno-38-12"></a>  • Property updated frequently
+<a id="__codelineno-38-13" name="__codelineno-38-13" href="#__codelineno-38-13"></a>  • Very low selectivity (e.g., boolean with 50/50 split)
+</code></pre></div>
+<h3 id="index-sizing">Index Sizing<a class="headerlink" href="#index-sizing" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Index Type</th>
+<th>Memory Formula</th>
+<th>Example (1M vectors, 768d)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HNSW</td>
+<td>~1.5x vectors × (4 + m×8) bytes</td>
+<td>~120 MB</td>
+</tr>
+<tr>
+<td>IVF_PQ</td>
+<td>vectors × (d/sub_vectors) bytes</td>
+<td>~24 MB</td>
+</tr>
+<tr>
+<td>BTree</td>
+<td>~40 bytes per key</td>
+<td>~40 MB</td>
+</tr>
+<tr>
+<td>Bitmap</td>
+<td>~n_distinct × rows / 8 bytes</td>
+<td>Varies</td>
+</tr>
+</tbody>
+</table>
+<h3 id="index-maintenance">Index Maintenance<a class="headerlink" href="#index-maintenance" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="c1"># Check index health</span>
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>uni<span class="w"> </span>index<span class="w"> </span>stats<span class="w"> </span>--path<span class="w"> </span>./storage
+<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>
+<a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a><span class="c1"># Rebuild fragmented index</span>
+<a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a>uni<span class="w"> </span>index<span class="w"> </span>rebuild<span class="w"> </span>paper_embeddings<span class="w"> </span>--path<span class="w"> </span>./storage
+<a id="__codelineno-39-6" name="__codelineno-39-6" href="#__codelineno-39-6"></a>
+<a id="__codelineno-39-7" name="__codelineno-39-7" href="#__codelineno-39-7"></a><span class="c1"># Optimize after bulk load</span>
+<a id="__codelineno-39-8" name="__codelineno-39-8" href="#__codelineno-39-8"></a>uni<span class="w"> </span>index<span class="w"> </span>optimize<span class="w"> </span>--path<span class="w"> </span>./storage
+</code></pre></div>
+<hr />
+<h2 id="performance-comparison_1">Performance Comparison<a class="headerlink" href="#performance-comparison_1" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Query Type</th>
+<th>Without Index</th>
+<th>With Index</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Point lookup</td>
+<td>O(n) scan</td>
+<td>O(log n) BTree</td>
+<td>1000x+</td>
+</tr>
+<tr>
+<td>Range query</td>
+<td>O(n) scan</td>
+<td>O(log n + k)</td>
+<td>100x+</td>
+</tr>
+<tr>
+<td>Vector KNN</td>
+<td>O(n×d) brute</td>
+<td>O(log n) HNSW</td>
+<td>1000x+</td>
+</tr>
+<tr>
+<td>Full-text</td>
+<td>O(n×len) scan</td>
+<td>O(log n) inverted</td>
+<td>100x+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../guides/vector-search/">Vector Search Guide</a> — Deep dive into similarity search</li>
+<li><a href="../../guides/performance-tuning/">Performance Tuning</a> — Optimization strategies</li>
+<li><a href="../../internals/query-planning/">Query Planning</a> — How indexes are selected</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024-2026 Dragonscale Industries Inc. - Part of The Rustic Initiative
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>
