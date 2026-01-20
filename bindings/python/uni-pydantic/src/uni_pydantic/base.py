@@ -50,9 +50,11 @@ class UniModelMeta(type(BaseModel)):  # type: ignore[misc]
                 # Store relationship config
                 relationships[field_name] = default.config
 
-                # Remove from namespace (will be added as descriptor)
+                # Remove from namespace and annotations to exclude from Pydantic validation
                 if field_name in namespace:
                     del namespace[field_name]
+                # Also remove from annotations so Pydantic doesn't treat it as a required field
+                del annotations[field_name]
 
         # Create the class
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
