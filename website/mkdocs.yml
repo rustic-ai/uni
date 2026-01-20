@@ -29,6 +29,20 @@ nav:
       - Data Ingestion: guides/data-ingestion.md
       - Schema Design: guides/schema-design.md
       - Performance Tuning: guides/performance-tuning.md
+  - Examples:
+      - Overview: examples/index.md
+      - Python:
+          - Supply Chain: examples/python/supply_chain.ipynb
+          - Recommendation: examples/python/recommendation.ipynb
+          - RAG: examples/python/rag.ipynb
+          - Fraud Detection: examples/python/fraud_detection.ipynb
+          - Sales Analytics: examples/python/sales_analytics.ipynb
+      - Rust:
+          - Supply Chain: examples/rust/supply_chain.ipynb
+          - Recommendation: examples/rust/recommendation.ipynb
+          - RAG: examples/rust/rag.ipynb
+          - Fraud Detection: examples/rust/fraud_detection.ipynb
+          - Sales Analytics: examples/rust/sales_analytics.ipynb
   - Internals:
       - Overview: internals/index.md
       - Vectorized Execution: internals/vectorized-execution.md
@@ -69,6 +83,18 @@ extra_javascript:
 
 plugins:
   - search
+  - mkdocs-jupyter:
+      include_source: true
+      # Execute notebooks during build (requires uni package installed)
+      # Alternative: run website/execute_notebooks.py to pre-execute
+      execute: true
+      execute_ignore:
+        - "examples/rust/*.ipynb"  # Rust notebooks require evcxr kernel
+      allow_errors: false
+      theme: light
+      include_requirejs: true
+      # Kernel for Python notebooks
+      kernel_name: python3
 
 markdown_extensions:
   - admonition

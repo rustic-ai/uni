@@ -1,8 +1,18 @@
 import json
 import os
+import uuid
+
+
+def generate_cell_id():
+    """Generate a unique cell ID."""
+    return str(uuid.uuid4()).replace("-", "")[:32]
 
 
 def create_notebook(cells):
+    # Add IDs to all cells if missing
+    for cell in cells:
+        if "id" not in cell:
+            cell["id"] = generate_cell_id()
     return {
         "cells": cells,
         "metadata": {
@@ -28,6 +38,7 @@ def create_notebook(cells):
 
 def md_cell(source):
     return {
+        "id": generate_cell_id(),
         "cell_type": "markdown",
         "metadata": {},
         "source": [line + "\n" for line in source],
@@ -36,6 +47,7 @@ def md_cell(source):
 
 def code_cell(source):
     return {
+        "id": generate_cell_id(),
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
@@ -45,14 +57,9 @@ def code_cell(source):
 
 
 common_setup = [
-    "import sys",
     "import os",
     "import shutil",
-    "import json",
-    "",
-    "# Ensure we can import the uni module",
-    "# Adjust this path if your notebook is in a different location",
-    'sys.path.append(os.path.abspath(".."))',
+    "import tempfile",
     "",
     "import uni",
 ]
@@ -60,7 +67,7 @@ common_setup = [
 
 def db_setup(name):
     return [
-        f'db_path = "./{name}_db"',
+        f'db_path = os.path.join(tempfile.gettempdir(), "{name}_db")',
         "if os.path.exists(db_path):",
         "    shutil.rmtree(db_path)",
         "db = uni.Database(db_path)",
@@ -192,7 +199,7 @@ rec_nb = create_notebook(
                 'db.add_property("Product", "price", "float64", False)',
                 'db.add_property("Product", "embedding", "vector:4", False)',
                 "",
-                'db.create_vector_index("Product", "embedding", 4, "cosine")',
+                'db.create_vector_index("Product", "embedding", "cosine")',
             ]
         ),
         md_cell(["## 2. Ingest Data"]),
@@ -284,7 +291,7 @@ rag_nb = create_notebook(
                 "",
                 'db.add_property("Chunk", "text", "string", False)',
                 'db.add_property("Chunk", "embedding", "vector:4", False)',
-                'db.create_vector_index("Chunk", "embedding", 4, "cosine")',
+                'db.create_vector_index("Chunk", "embedding", "cosine")',
             ]
         ),
         md_cell(["## 2. Ingest Data"]),
@@ -446,22 +453,22 @@ sales_nb = create_notebook(
     ]
 )
 
-# Write notebooks
-os.makedirs("bindings/python/examples", exist_ok=True)
+# Write notebooks to the same directory as this script
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
-with open("bindings/python/examples/supply_chain.ipynb", "w") as f:
+with open(os.path.join(script_dir, "supply_chain.ipynb"), "w") as f:
     json.dump(supply_chain_nb, f, indent=2)
 
-with open("bindings/python/examples/recommendation.ipynb", "w") as f:
+with open(os.path.join(script_dir, "recommendation.ipynb"), "w") as f:
     json.dump(rec_nb, f, indent=2)
 
-with open("bindings/python/examples/rag.ipynb", "w") as f:
+with open(os.path.join(script_dir, "rag.ipynb"), "w") as f:
     json.dump(rag_nb, f, indent=2)
 
-with open("bindings/python/examples/fraud_detection.ipynb", "w") as f:
+with open(os.path.join(script_dir, "fraud_detection.ipynb"), "w") as f:
     json.dump(fraud_nb, f, indent=2)
 
-with open("bindings/python/examples/sales_analytics.ipynb", "w") as f:
+with open(os.path.join(script_dir, "sales_analytics.ipynb"), "w") as f:
     json.dump(sales_nb, f, indent=2)
 
 print("Notebooks created successfully.")
