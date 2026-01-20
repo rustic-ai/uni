@@ -1164,7 +1164,12 @@ impl<'a> CypherParser<'a> {
         }
 
         let op = if self.consume_token(Token::Eq) {
-            Some(Operator::Eq)
+            // Check for =~ (regex match)
+            if self.consume_token(Token::Tilde) {
+                Some(Operator::Regex)
+            } else {
+                Some(Operator::Eq)
+            }
         } else if self.consume_token(Token::Tilde) {
             self.expect_token(Token::Eq)?;
             Some(Operator::ApproxEq)

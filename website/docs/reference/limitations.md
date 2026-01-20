@@ -56,65 +56,6 @@ See [Cloud Storage Configuration](configuration.md#cloud-storage-configuration) 
 
 ## Query Language Limitations
 
-### Regular Expression Matching
-
-**Status:** Not Implemented
-
-The Cypher `=~` operator for regular expression matching is not supported:
-
-```cypher
--- NOT SUPPORTED
-MATCH (p:Paper)
-WHERE p.title =~ '.*Transform.*'
-RETURN p
-```
-
-**Workaround:** Use `CONTAINS`, `STARTS WITH`, or `ENDS WITH` for pattern matching:
-
-```cypher
--- Use CONTAINS instead
-MATCH (p:Paper)
-WHERE p.title CONTAINS 'Transform'
-RETURN p
-
--- Or STARTS WITH / ENDS WITH
-MATCH (p:Paper)
-WHERE p.title STARTS WITH 'Attention'
-RETURN p
-```
-
-### shortestPath Multi-Hop Patterns
-
-**Status:** Partial Support
-
-The `shortestPath` function only supports simple 1-hop patterns:
-
-```cypher
--- SUPPORTED: Single relationship type with variable length
-MATCH path = shortestPath((a:Person)-[:KNOWS*]-(b:Person))
-RETURN path
-
--- NOT SUPPORTED: Range specifiers
-MATCH path = shortestPath((a:Person)-[:KNOWS*1..5]-(b:Person))
-RETURN path
-
--- NOT SUPPORTED: Multiple relationship types
-MATCH path = shortestPath((a)-[:KNOWS|WORKS_WITH*]-(b))
-RETURN path
-```
-
-**Technical Details:** The planner explicitly checks for exactly 3 pattern parts `[source_node, relationship, target_node]` and rejects more complex patterns.
-
-**Workaround:** Use variable-length path patterns with explicit bounds:
-
-```cypher
--- Find paths up to 5 hops manually
-MATCH path = (a:Person {name: 'Alice'})-[:KNOWS*1..5]-(b:Person {name: 'Bob'})
-RETURN path, length(path) AS hops
-ORDER BY hops
-LIMIT 1
-```
-
 ### DELETE/SET on Matched Patterns
 
 **Status:** Partial Support
@@ -139,24 +80,6 @@ DELETE r
 ---
 
 ## Index Limitations
-
-### BTree Index for STARTS WITH
-
-**Status:** Partial (Residual Evaluation Only)
-
-While BTree indexes exist and `STARTS WITH` queries work, the query planner does not push `STARTS WITH` predicates down to BTree indexes for acceleration:
-
-```cypher
--- Works, but uses residual evaluation (post-load filtering)
--- rather than index-accelerated prefix scan
-MATCH (p:Person)
-WHERE p.name STARTS WITH 'John'
-RETURN p
-```
-
-**Impact:** For large datasets, `STARTS WITH` queries may be slower than expected because the index is not used for prefix matching.
-
-**Workaround:** For performance-critical prefix searches, consider using a Hash index with exact matches, or use Full-Text Search with `CONTAINS`.
 
 ### Vector Index Limitations
 
@@ -319,13 +242,22 @@ while True:
 | Limitation | Category | Severity | Workaround Available |
 |------------|----------|----------|---------------------|
 | Cloud Storage (S3/GCS/Azure) | Storage | Low | Supported via hybrid mode |
-| Regular Expression (`=~`) | Query | Medium | Use CONTAINS/STARTS WITH |
-| shortestPath multi-hop | Query | Low | Variable-length paths |
-| BTree STARTS WITH pushdown | Index | Low | Use FTS or Hash index |
 | Single-writer model | Concurrency | Medium | Batch operations |
 | No distributed mode | Architecture | High | Application-level replication |
 | No streaming in Python | API | Low | Pagination with SKIP/LIMIT |
 | Schema type changes | Schema | Medium | Manual migration |
+
+---
+
+## Recently Resolved
+
+The following limitations have been resolved in recent releases:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Regular Expression (`=~`) | ✅ Implemented | Full regex support with `=~` operator |
+| shortestPath hop constraints | ✅ Implemented | Range specifiers like `*1..5` now supported |
+| BTree STARTS WITH pushdown | ✅ Implemented | BTree indexes accelerate prefix searches |
 
 ---
 

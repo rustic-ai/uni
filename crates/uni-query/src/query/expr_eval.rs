@@ -99,6 +99,21 @@ pub fn eval_binary_op(left: &Value, op: &Operator, right: &Value) -> Result<Valu
         Operator::ApproxEq => Err(anyhow!(
             "ApproxEq (~=) operator requires vector index optimization"
         )),
+        Operator::Regex => {
+            // Handle NULL operands per Cypher semantics
+            if left.is_null() || right.is_null() {
+                return Ok(Value::Null);
+            }
+            let l = left
+                .as_str()
+                .ok_or_else(|| anyhow!("Left operand of =~ must be a string"))?;
+            let pattern = right
+                .as_str()
+                .ok_or_else(|| anyhow!("Right operand of =~ must be a regex pattern string"))?;
+            let re = regex::Regex::new(pattern)
+                .map_err(|e| anyhow!("Invalid regex pattern '{}': {}", pattern, e))?;
+            Ok(Value::Bool(re.is_match(l)))
+        }
     }
 }
 
@@ -1367,5 +1382,158 @@ mod tests {
         let v2 = json!([1.0, 0.0]);
         let result = eval_vector_similarity(&v1, &v2).unwrap();
         assert_eq!(result.as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_regex_match() {
+        // Basic regex match
+        assert_eq!(
+            eval_binary_op(&json!("hello world"), &Operator::Regex, &json!("hello.*")).unwrap(),
+            Value::Bool(true)
+        );
+
+        // No match
+        assert_eq!(
+            eval_binary_op(&json!("hello world"), &Operator::Regex, &json!("^world")).unwrap(),
+            Value::Bool(false)
+        );
+
+        // Case sensitive
+        assert_eq!(
+            eval_binary_op(&json!("Hello"), &Operator::Regex, &json!("hello")).unwrap(),
+            Value::Bool(false)
+        );
+
+        // Case insensitive with flag
+        assert_eq!(
+            eval_binary_op(&json!("Hello"), &Operator::Regex, &json!("(?i)hello")).unwrap(),
+            Value::Bool(true)
+        );
+    }
+
+    #[test]
+    fn test_regex_null_handling() {
+        // Left operand is null
+        assert_eq!(
+            eval_binary_op(&Value::Null, &Operator::Regex, &json!(".*")).unwrap(),
+            Value::Null
+        );
+
+        // Right operand is null
+        assert_eq!(
+            eval_binary_op(&json!("hello"), &Operator::Regex, &Value::Null).unwrap(),
+            Value::Null
+        );
+    }
+
+    #[test]
+    fn test_regex_invalid_pattern() {
+        // Invalid regex pattern should return error
+        let result = eval_binary_op(&json!("hello"), &Operator::Regex, &json!("[invalid"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid regex"));
+    }
+
+    #[test]
+    fn test_regex_special_characters() {
+        // Email pattern with escaped dots
+        assert_eq!(
+            eval_binary_op(
+                &json!("test@example.com"),
+                &Operator::Regex,
+                &json!(r"^[\w.-]+@[\w.-]+\.\w+$")
+            )
+            .unwrap(),
+            Value::Bool(true)
+        );
+
+        // Phone number pattern
+        assert_eq!(
+            eval_binary_op(
+                &json!("123-456-7890"),
+                &Operator::Regex,
+                &json!(r"^\d{3}-\d{3}-\d{4}$")
+            )
+            .unwrap(),
+            Value::Bool(true)
+        );
+
+        // Non-matching phone
+        assert_eq!(
+            eval_binary_op(
+                &json!("1234567890"),
+                &Operator::Regex,
+                &json!(r"^\d{3}-\d{3}-\d{4}$")
+            )
+            .unwrap(),
+            Value::Bool(false)
+        );
+    }
+
+    #[test]
+    fn test_regex_anchors() {
+        // Start anchor
+        assert_eq!(
+            eval_binary_op(&json!("hello world"), &Operator::Regex, &json!("^hello")).unwrap(),
+            Value::Bool(true)
+        );
+        assert_eq!(
+            eval_binary_op(&json!("say hello"), &Operator::Regex, &json!("^hello")).unwrap(),
+            Value::Bool(false)
+        );
+
+        // End anchor
+        assert_eq!(
+            eval_binary_op(&json!("hello world"), &Operator::Regex, &json!("world$")).unwrap(),
+            Value::Bool(true)
+        );
+        assert_eq!(
+            eval_binary_op(&json!("world hello"), &Operator::Regex, &json!("world$")).unwrap(),
+            Value::Bool(false)
+        );
+
+        // Full match with both anchors
+        assert_eq!(
+            eval_binary_op(&json!("hello"), &Operator::Regex, &json!("^hello$")).unwrap(),
+            Value::Bool(true)
+        );
+        assert_eq!(
+            eval_binary_op(&json!("hello world"), &Operator::Regex, &json!("^hello$")).unwrap(),
+            Value::Bool(false)
+        );
+    }
+
+    #[test]
+    fn test_regex_empty_string() {
+        // Empty string matches empty pattern
+        assert_eq!(
+            eval_binary_op(&json!(""), &Operator::Regex, &json!("^$")).unwrap(),
+            Value::Bool(true)
+        );
+
+        // Empty string doesn't match non-empty pattern
+        assert_eq!(
+            eval_binary_op(&json!(""), &Operator::Regex, &json!(".+")).unwrap(),
+            Value::Bool(false)
+        );
+
+        // Non-empty string matches .* (matches anything including empty)
+        assert_eq!(
+            eval_binary_op(&json!("hello"), &Operator::Regex, &json!(".*")).unwrap(),
+            Value::Bool(true)
+        );
+    }
+
+    #[test]
+    fn test_regex_type_errors() {
+        // Non-string left operand
+        let result = eval_binary_op(&json!(123), &Operator::Regex, &json!("\\d+"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must be a string"));
+
+        // Non-string right operand (pattern)
+        let result = eval_binary_op(&json!("hello"), &Operator::Regex, &json!(123));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("pattern string"));
     }
 }

@@ -1987,6 +1987,10 @@ pub struct VectorizedShortestPath {
     pub target_variable: String,
     pub path_variable: String,
     pub target_label_id: u16,
+    /// Minimum number of hops (edges) in the path. Default is 1.
+    pub min_hops: u32,
+    /// Maximum number of hops (edges) in the path. Default is u32::MAX (unlimited).
+    pub max_hops: u32,
 }
 
 #[async_trait]
@@ -2080,7 +2084,13 @@ impl VectorizedOperator for VectorizedShortestPath {
                 self.edge_type_ids.clone(),
             );
 
-            if let Some(path) = traversal.shortest_path(src_vid, dst_vid, self.direction) {
+            if let Some(path) = traversal.shortest_path_with_hops(
+                src_vid,
+                dst_vid,
+                self.direction,
+                self.min_hops,
+                self.max_hops,
+            ) {
                 paths.push(path);
                 row_indices.push(i as u64);
             }
@@ -2771,6 +2781,19 @@ fn evaluate_l0(
                 Operator::EndsWith => {
                     if let (Value::String(ls), Value::String(rs)) = (&l, &r) {
                         Value::Bool(ls.ends_with(rs))
+                    } else {
+                        Value::Null
+                    }
+                }
+                Operator::Regex => {
+                    // Handle NULL operands per Cypher semantics
+                    if l.is_null() || r.is_null() {
+                        Value::Null
+                    } else if let (Value::String(ls), Value::String(pattern)) = (&l, &r) {
+                        match regex::Regex::new(pattern) {
+                            Ok(re) => Value::Bool(re.is_match(ls)),
+                            Err(_) => Value::Null, // Invalid regex -> Null
+                        }
                     } else {
                         Value::Null
                     }

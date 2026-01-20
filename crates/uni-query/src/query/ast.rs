@@ -26,6 +26,7 @@ pub enum Operator {
     Mod,        // %
     Pow,        // ^
     ApproxEq,   // ~=
+    Regex,      // =~
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -313,6 +314,7 @@ impl Expr {
                     Operator::Mod => "%",
                     Operator::Pow => "^",
                     Operator::ApproxEq => "~=",
+                    Operator::Regex => "=~",
                 };
                 format!(
                     "({} {} {})",

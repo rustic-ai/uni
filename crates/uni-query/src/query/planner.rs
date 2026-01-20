@@ -143,6 +143,10 @@ pub enum LogicalPlan {
         target_variable: String,
         target_label_id: u16,
         path_variable: String,
+        /// Minimum number of hops (edges) in the path. Default is 1.
+        min_hops: u32,
+        /// Maximum number of hops (edges) in the path. Default is u32::MAX (unlimited).
+        max_hops: u32,
     },
     // DDL Plans
     CreateVectorIndex {
@@ -1113,6 +1117,11 @@ impl QueryPlanner {
             }
         }
 
+        // Extract hop constraints from relationship pattern
+        // Default: min_hops = 1, max_hops = unlimited (u32::MAX)
+        let min_hops = rel.min_hops.unwrap_or(1);
+        let max_hops = rel.max_hops.unwrap_or(u32::MAX);
+
         plan = LogicalPlan::ShortestPath {
             input: Box::new(plan),
             edge_type_ids,
@@ -1121,6 +1130,8 @@ impl QueryPlanner {
             target_variable: target_var.clone(),
             target_label_id,
             path_variable: path_var.clone(),
+            min_hops,
+            max_hops,
         };
 
         if !source_bound {

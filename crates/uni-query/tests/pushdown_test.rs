@@ -307,3 +307,291 @@ fn test_index_aware_combined_predicates() {
     // author should go to lance_predicates
     assert_eq!(strategy.lance_predicates.len(), 1);
 }
+
+// =====================================================================
+// BTree STARTS WITH Pushdown Tests
+// =====================================================================
+
+use uni_common::core::schema::{IndexDefinition, ScalarIndexConfig, ScalarIndexType};
+
+fn create_test_schema_with_btree_index(label: &str, label_id: u16, index_property: &str) -> Schema {
+    let mut schema = Schema::default();
+    schema.labels.insert(
+        label.to_string(),
+        LabelMeta {
+            id: label_id,
+            created_at: chrono::Utc::now(),
+            state: SchemaElementState::Active,
+            is_document: false,
+            json_indexes: vec![],
+        },
+    );
+    schema
+        .indexes
+        .push(IndexDefinition::Scalar(ScalarIndexConfig {
+            name: format!("idx_{}_{}", label, index_property),
+            label: label.to_string(),
+            properties: vec![index_property.to_string()],
+            index_type: ScalarIndexType::BTree,
+            where_clause: None,
+        }));
+    schema
+}
+
+#[test]
+fn test_btree_starts_with_extraction() {
+    let schema = create_test_schema_with_btree_index("Person", 1, "name");
+
+    // Create predicate: n.name STARTS WITH 'John'
+    let expr = Expr::BinaryOp {
+        left: Box::new(Expr::Property(
+            Box::new(Expr::Identifier("n".to_string())),
+            "name".to_string(),
+        )),
+        op: Operator::StartsWith,
+        right: Box::new(Expr::Literal(Value::String("John".to_string()))),
+    };
+
+    let analyzer = IndexAwareAnalyzer::new(&schema);
+    let strategy = analyzer.analyze(&expr, "n", 1);
+
+    // Should be extracted as BTree prefix scan
+    assert_eq!(strategy.btree_prefix_scans.len(), 1);
+    assert_eq!(strategy.btree_prefix_scans[0].0, "name");
+    assert_eq!(strategy.btree_prefix_scans[0].1, "John");
+    assert_eq!(strategy.btree_prefix_scans[0].2, "Joho"); // 'n' + 1 = 'o'
+
+    // Should NOT be in lance_predicates (routed to BTree scan instead)
+    assert!(strategy.lance_predicates.is_empty());
+}
+
+#[test]
+fn test_btree_starts_with_non_indexed_property() {
+    let schema = create_test_schema_with_btree_index("Person", 1, "name");
+
+    // Create predicate: n.email STARTS WITH 'john@' (not indexed)
+    let expr = Expr::BinaryOp {
+        left: Box::new(Expr::Property(
+            Box::new(Expr::Identifier("n".to_string())),
+            "email".to_string(),
+        )),
+        op: Operator::StartsWith,
+        right: Box::new(Expr::Literal(Value::String("john@".to_string()))),
+    };
+
+    let analyzer = IndexAwareAnalyzer::new(&schema);
+    let strategy = analyzer.analyze(&expr, "n", 1);
+
+    // Should NOT be extracted as BTree prefix scan (no index on email)
+    assert!(strategy.btree_prefix_scans.is_empty());
+
+    // Should go to lance_predicates as LIKE predicate
+    assert_eq!(strategy.lance_predicates.len(), 1);
+}
+
+#[test]
+fn test_btree_starts_with_empty_prefix() {
+    let schema = create_test_schema_with_btree_index("Person", 1, "name");
+
+    // Create predicate: n.name STARTS WITH '' (empty prefix - matches all)
+    let expr = Expr::BinaryOp {
+        left: Box::new(Expr::Property(
+            Box::new(Expr::Identifier("n".to_string())),
+            "name".to_string(),
+        )),
+        op: Operator::StartsWith,
+        right: Box::new(Expr::Literal(Value::String("".to_string()))),
+    };
+
+    let analyzer = IndexAwareAnalyzer::new(&schema);
+    let strategy = analyzer.analyze(&expr, "n", 1);
+
+    // Empty prefix should NOT be optimized via BTree (matches all, no benefit)
+    assert!(strategy.btree_prefix_scans.is_empty());
+
+    // Should go to lance_predicates
+    assert_eq!(strategy.lance_predicates.len(), 1);
+}
+
+#[test]
+fn test_btree_starts_with_hash_index_not_used() {
+    let mut schema = Schema::default();
+    schema.labels.insert(
+        "Person".to_string(),
+        LabelMeta {
+            id: 1,
+            created_at: chrono::Utc::now(),
+            state: SchemaElementState::Active,
+            is_document: false,
+            json_indexes: vec![],
+        },
+    );
+    // Add a Hash index instead of BTree
+    schema
+        .indexes
+        .push(IndexDefinition::Scalar(ScalarIndexConfig {
+            name: "idx_person_name".to_string(),
+            label: "Person".to_string(),
+            properties: vec!["name".to_string()],
+            index_type: ScalarIndexType::Hash, // Not BTree
+            where_clause: None,
+        }));
+
+    // Create predicate: n.name STARTS WITH 'John'
+    let expr = Expr::BinaryOp {
+        left: Box::new(Expr::Property(
+            Box::new(Expr::Identifier("n".to_string())),
+            "name".to_string(),
+        )),
+        op: Operator::StartsWith,
+        right: Box::new(Expr::Literal(Value::String("John".to_string()))),
+    };
+
+    let analyzer = IndexAwareAnalyzer::new(&schema);
+    let strategy = analyzer.analyze(&expr, "n", 1);
+
+    // Hash index should NOT be used for STARTS WITH
+    assert!(strategy.btree_prefix_scans.is_empty());
+
+    // Should go to lance_predicates as LIKE predicate
+    assert_eq!(strategy.lance_predicates.len(), 1);
+}
+
+#[test]
+fn test_btree_prefix_increment_logic() {
+    // Test the increment_last_char helper via BTree extraction
+    let schema = create_test_schema_with_btree_index("Person", 1, "name");
+
+    // Test various prefixes and verify upper bounds
+    let test_cases = vec![
+        ("A", "B"),       // Simple single char
+        ("Z", "["),       // Z + 1 = [
+        ("abc", "abd"),   // c + 1 = d
+        ("test", "tesu"), // t + 1 = u
+        ("123", "124"),   // Numeric strings
+    ];
+
+    for (prefix, expected_upper) in test_cases {
+        let expr = Expr::BinaryOp {
+            left: Box::new(Expr::Property(
+                Box::new(Expr::Identifier("n".to_string())),
+                "name".to_string(),
+            )),
+            op: Operator::StartsWith,
+            right: Box::new(Expr::Literal(Value::String(prefix.to_string()))),
+        };
+
+        let analyzer = IndexAwareAnalyzer::new(&schema);
+        let strategy = analyzer.analyze(&expr, "n", 1);
+
+        assert_eq!(
+            strategy.btree_prefix_scans.len(),
+            1,
+            "Failed for prefix: {}",
+            prefix
+        );
+        assert_eq!(strategy.btree_prefix_scans[0].1, prefix);
+        assert_eq!(
+            strategy.btree_prefix_scans[0].2, expected_upper,
+            "Upper bound mismatch for prefix: {}",
+            prefix
+        );
+    }
+}
+
+#[test]
+fn test_btree_starts_with_special_characters() {
+    let schema = create_test_schema_with_btree_index("Person", 1, "name");
+
+    // Prefix with single quote (should be escaped in SQL)
+    let expr = Expr::BinaryOp {
+        left: Box::new(Expr::Property(
+            Box::new(Expr::Identifier("n".to_string())),
+            "name".to_string(),
+        )),
+        op: Operator::StartsWith,
+        right: Box::new(Expr::Literal(Value::String("O'Brien".to_string()))),
+    };
+
+    let analyzer = IndexAwareAnalyzer::new(&schema);
+    let strategy = analyzer.analyze(&expr, "n", 1);
+
+    // Should still be extracted
+    assert_eq!(strategy.btree_prefix_scans.len(), 1);
+    assert_eq!(strategy.btree_prefix_scans[0].1, "O'Brien");
+}
+
+#[test]
+fn test_btree_starts_with_unicode() {
+    let schema = create_test_schema_with_btree_index("Person", 1, "name");
+
+    // Unicode prefix
+    let expr = Expr::BinaryOp {
+        left: Box::new(Expr::Property(
+            Box::new(Expr::Identifier("n".to_string())),
+            "name".to_string(),
+        )),
+        op: Operator::StartsWith,
+        right: Box::new(Expr::Literal(Value::String("日本".to_string()))),
+    };
+
+    let analyzer = IndexAwareAnalyzer::new(&schema);
+    let strategy = analyzer.analyze(&expr, "n", 1);
+
+    // Should be extracted (Unicode char increment works)
+    assert_eq!(strategy.btree_prefix_scans.len(), 1);
+    assert_eq!(strategy.btree_prefix_scans[0].1, "日本");
+}
+
+#[test]
+fn test_btree_starts_with_multiple_indexed_properties() {
+    let mut schema = Schema::default();
+    schema.labels.insert(
+        "Person".to_string(),
+        LabelMeta {
+            id: 1,
+            created_at: chrono::Utc::now(),
+            state: SchemaElementState::Active,
+            is_document: false,
+            json_indexes: vec![],
+        },
+    );
+    // Index covers multiple properties
+    schema
+        .indexes
+        .push(IndexDefinition::Scalar(ScalarIndexConfig {
+            name: "idx_person_name_email".to_string(),
+            label: "Person".to_string(),
+            properties: vec!["name".to_string(), "email".to_string()],
+            index_type: ScalarIndexType::BTree,
+            where_clause: None,
+        }));
+
+    // Test name (indexed)
+    let expr1 = Expr::BinaryOp {
+        left: Box::new(Expr::Property(
+            Box::new(Expr::Identifier("n".to_string())),
+            "name".to_string(),
+        )),
+        op: Operator::StartsWith,
+        right: Box::new(Expr::Literal(Value::String("John".to_string()))),
+    };
+
+    // Test email (also indexed)
+    let expr2 = Expr::BinaryOp {
+        left: Box::new(Expr::Property(
+            Box::new(Expr::Identifier("n".to_string())),
+            "email".to_string(),
+        )),
+        op: Operator::StartsWith,
+        right: Box::new(Expr::Literal(Value::String("john@".to_string()))),
+    };
+
+    let analyzer = IndexAwareAnalyzer::new(&schema);
+
+    let strategy1 = analyzer.analyze(&expr1, "n", 1);
+    assert_eq!(strategy1.btree_prefix_scans.len(), 1);
+
+    let strategy2 = analyzer.analyze(&expr2, "n", 1);
+    assert_eq!(strategy2.btree_prefix_scans.len(), 1);
+}

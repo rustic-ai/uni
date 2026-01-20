@@ -501,6 +501,8 @@ impl PhysicalPlanner {
                 target_variable,
                 target_label_id,
                 path_variable,
+                min_hops,
+                max_hops,
             } => {
                 self.plan_recursive(input, ops, all_properties)?;
                 use crate::query::ast::Direction as ParserDir;
@@ -518,6 +520,8 @@ impl PhysicalPlanner {
                     target_variable: target_variable.clone(),
                     path_variable: path_variable.clone(),
                     target_label_id: *target_label_id,
+                    min_hops: *min_hops,
+                    max_hops: *max_hops,
                 }));
             }
             LogicalPlan::Delete {
@@ -647,8 +651,25 @@ impl PhysicalPlanner {
             let strategy = index_analyzer.analyze(f, variable, label_id);
 
             // Generate Lance filter from lance_predicates
-            let lance_filter = LanceFilterGenerator::generate(&strategy.lance_predicates, variable);
+            let mut lance_filter =
+                LanceFilterGenerator::generate(&strategy.lance_predicates, variable);
             let pushed_predicates = strategy.lance_predicates.clone();
+
+            // Convert BTree prefix scans to range predicates and add to lance_filter
+            // e.g., STARTS WITH 'John' -> column >= 'John' AND column < 'Joho'
+            for (column, lower, upper) in &strategy.btree_prefix_scans {
+                let range_filter = format!(
+                    "{} >= '{}' AND {} < '{}'",
+                    column,
+                    lower.replace('\'', "''"),
+                    column,
+                    upper.replace('\'', "''")
+                );
+                lance_filter = match lance_filter {
+                    Some(existing) => Some(format!("{} AND {}", existing, range_filter)),
+                    None => Some(range_filter),
+                };
+            }
 
             // Residual predicates need to be applied after MVCC resolution
             let residual = if !strategy.residual.is_empty() {

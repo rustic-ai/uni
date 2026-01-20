@@ -27,6 +27,12 @@ pub struct PushdownStrategy {
     /// Vec of: (column, query_string, optional_path_filter)
     pub json_fts_predicates: Vec<(String, String, Option<String>)>,
 
+    /// BTree index prefix scans for STARTS WITH predicates.
+    /// When a property has a scalar BTree index, STARTS WITH 'prefix' can be
+    /// converted to a range scan: column >= 'prefix' AND column < 'prefix_next'.
+    /// Vec of: (column_name, lower_bound, upper_bound)
+    pub btree_prefix_scans: Vec<(String, String, String)>,
+
     /// Predicates pushable to Lance scan filter.
     pub lance_predicates: Vec<Expr>,
 
@@ -85,7 +91,15 @@ impl<'a> IndexAwareAnalyzer<'a> {
                 continue;
             }
 
-            // 4. Check if pushable to Lance
+            // 4. Check for BTree-indexed STARTS WITH predicates
+            if let Some((column, lower, upper)) =
+                self.extract_btree_prefix_scan(&conj, variable, label_id)
+            {
+                strategy.btree_prefix_scans.push((column, lower, upper));
+                continue;
+            }
+
+            // 5. Check if pushable to Lance
             let analyzer = PredicateAnalyzer::new(None);
             if analyzer.is_pushable(&conj, variable) {
                 strategy.lance_predicates.push(conj);
@@ -194,6 +208,57 @@ impl<'a> IndexAwareAnalyzer<'a> {
                             let path = format!("$.{}", column);
                             return Some((base_column.clone(), query_string, Some(path)));
                         }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Extract BTree prefix scan for STARTS WITH predicates on scalar-indexed properties.
+    ///
+    /// Returns `Some((column, lower_bound, upper_bound))` if:
+    /// - The predicate is `variable.property STARTS WITH 'prefix'`
+    /// - The property has a scalar BTree index
+    /// - The prefix is non-empty (empty prefix matches all, not worth optimizing)
+    ///
+    /// Converts `column STARTS WITH 'John'` to:
+    /// `column >= 'John' AND column < 'Joho'`
+    fn extract_btree_prefix_scan(
+        &self,
+        expr: &Expr,
+        variable: &str,
+        label_id: u16,
+    ) -> Option<(String, String, String)> {
+        if let Expr::BinaryOp {
+            left,
+            op: Operator::StartsWith,
+            right,
+        } = expr
+            && let Expr::Property(var_expr, prop) = left.as_ref()
+            && let Expr::Identifier(v) = var_expr.as_ref()
+            && v == variable
+            && let Expr::Literal(Value::String(prefix)) = right.as_ref()
+        {
+            // Skip empty prefix (matches all, no optimization benefit)
+            if prefix.is_empty() {
+                return None;
+            }
+
+            // Check if property has a scalar BTree index
+            let label_name = self.schema.label_name_by_id(label_id)?;
+
+            for idx in &self.schema.indexes {
+                if let uni_common::core::schema::IndexDefinition::Scalar(cfg) = idx
+                    && cfg.label == *label_name
+                    && cfg.properties.contains(prop)
+                    && cfg.index_type == uni_common::core::schema::ScalarIndexType::BTree
+                {
+                    // Calculate the upper bound by incrementing the last character
+                    // For "John" -> "Joho"
+                    // This works for ASCII and most UTF-8 strings
+                    if let Some(upper) = increment_last_char(prefix) {
+                        return Some((prop.clone(), prefix.clone(), upper));
                     }
                 }
             }
@@ -512,6 +577,32 @@ fn collect_properties(expr: &Expr, variable: &str, props: &mut HashSet<String>) 
             collect_properties(idx, variable, props);
         }
         _ => {}
+    }
+}
+
+/// Increment the last character of a string to create an exclusive upper bound.
+///
+/// For ASCII strings, this increments the last character.
+/// For example: "John" -> "Joho"
+///
+/// Returns `None` if the last character is at its maximum value (cannot be incremented).
+fn increment_last_char(s: &str) -> Option<String> {
+    if s.is_empty() {
+        return None;
+    }
+
+    let mut chars: Vec<char> = s.chars().collect();
+    let last_idx = chars.len() - 1;
+    let last_char = chars[last_idx];
+
+    // Increment the last character
+    // For most ASCII/UTF-8 characters, this works correctly
+    if let Some(next_char) = char::from_u32(last_char as u32 + 1) {
+        chars[last_idx] = next_char;
+        Some(chars.into_iter().collect())
+    } else {
+        // Last character is at maximum, cannot increment
+        None
     }
 }
 

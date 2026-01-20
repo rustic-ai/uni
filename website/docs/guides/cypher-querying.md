@@ -201,11 +201,22 @@ WHERE a._doc CONTAINS 'graph database'
 // Path-specific JSON FTS search
 WHERE a._doc.title CONTAINS 'graph'
 
-// Regular expression (future)
+// Regular expression matching
 WHERE p.title =~ '.*Transform.*'
+
+// Case-insensitive regex
+WHERE p.email =~ '(?i)john@.*'
+
+// Email pattern matching
+WHERE p.email =~ '^[\\w.-]+@[\\w.-]+\\.\\w+$'
 ```
 
 **Note:** The `CONTAINS` operator is automatically routed to JSON FTS indexes when the column has an FTS index, enabling BM25-based full-text search with relevance ranking.
+
+**Regex Notes:**
+- The `=~` operator uses Rust's regex engine (similar to PCRE)
+- NULL operands return NULL (Cypher semantics)
+- Invalid regex patterns return an error
 
 ### List Operations
 
@@ -1077,16 +1088,37 @@ RETURN a.title, b.title
 
 ### Shortest Path
 
-The `shortestPath` function is partially supported with the following limitation:
-
-!!! warning "Limitation"
-    `shortestPath` only supports 1-hop patterns like `(a)-[:REL*]->(b)` for now. Multi-hop patterns with range specifiers (e.g., `*1..5`) are planned.
+The `shortestPath` function finds the shortest path between two nodes.
 
 ```cypher
-// Supported: single relationship type with variable length
+// Basic shortest path
 MATCH path = shortestPath((a:Author {name: 'Alice'})-[:COAUTHOR*]-(b:Author {name: 'Bob'}))
 RETURN path
+
+// With hop constraints (minimum and maximum hops)
+MATCH path = shortestPath((a:Person)-[:KNOWS*2..6]-(b:Person))
+WHERE a.name = 'Alice' AND b.name = 'Bob'
+RETURN path, length(path) AS hops
+
+// Minimum hops only (at least 2 hops)
+MATCH path = shortestPath((a)-[:FOLLOWS*2..]-(b))
+RETURN path
+
+// Maximum hops only (at most 5 hops)
+MATCH path = shortestPath((a)-[:KNOWS*..5]-(b))
+RETURN path
+
+// Zero-length path (source equals target with min_hops=0)
+MATCH path = shortestPath((a)-[:KNOWS*0..3]-(a))
+RETURN path
 ```
+
+**Hop Constraint Semantics:**
+- `*` or `*1..` — Unlimited hops (default: 1 to ∞)
+- `*2..6` — Between 2 and 6 hops
+- `*..5` — At most 5 hops (1 to 5)
+- `*3..` — At least 3 hops (3 to ∞)
+- `*0..` — Zero or more hops (allows source == target)
 
 ### Degree Counting
 
@@ -1671,7 +1703,9 @@ For detailed CRDT semantics and merge behavior, see [CRDT Types](../concepts/crd
 | PROFILE (runtime statistics) | Stable |
 | Session Variables (`$session.*`) | Stable |
 | Multi-label Nodes | Stable |
-| Regular Expression Matching (`=~`) | Planned |
+| Regular Expression Matching (`=~`) | Stable |
+| shortestPath with Hop Constraints (`*1..5`) | Stable |
+| BTree Index STARTS WITH Optimization | Stable |
 
 ---
 
