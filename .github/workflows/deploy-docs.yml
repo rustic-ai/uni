@@ -39,7 +39,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Build and install Python bindings FIRST (notebooks need uni_db)
+      # Build Rust crates (required by Python bindings and cargo doc)
+      - name: Build Rust crates
+        run: cargo build --release
+
+      # Build and install Python bindings (notebooks need uni_db)
       - name: Build Python bindings
         run: |
           pip install maturin
