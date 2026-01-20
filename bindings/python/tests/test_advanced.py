@@ -6,7 +6,7 @@ import unittest
 # Ensure we can import the module from the current directory
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import uni
+import uni_db
 
 
 class TestAdvanced(unittest.TestCase):
@@ -14,7 +14,7 @@ class TestAdvanced(unittest.TestCase):
         self.test_dir = "./test_db_adv"
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
-        self.db = uni.Database(self.test_dir)
+        self.db = uni_db.Database(self.test_dir)
         self.db.create_label("Entity")
 
     def tearDown(self):

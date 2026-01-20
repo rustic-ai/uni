@@ -67,7 +67,7 @@ def code_cell(source):
 
 
 # Common setup for all notebooks - load the uni crate
-common_deps = """:dep uni = { path = "../../../crates/uni" }
+common_deps = """:dep uni-db = { path = "../../../crates/uni" }
 :dep tokio = { version = "1", features = ["full"] }
 :dep serde_json = "1"
 """

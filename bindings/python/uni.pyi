@@ -7,8 +7,7 @@ Uni is an embedded, multi-model graph database with OpenCypher queries,
 vector search, and columnar analytics.
 """
 
-from typing import Any, Optional
-
+from typing import Any
 
 # =============================================================================
 # Data Classes
@@ -23,14 +22,13 @@ class VectorMatch:
     distance: float
     """Distance/similarity score (lower is more similar for L2)."""
 
-
 class SnapshotInfo:
     """Metadata about a database snapshot."""
 
     snapshot_id: str
     """Unique identifier for this snapshot."""
 
-    name: Optional[str]
+    name: str | None
     """Optional user-provided name."""
 
     created_at: str
@@ -41,7 +39,6 @@ class SnapshotInfo:
 
     edge_count: int
     """Number of edges in the snapshot."""
-
 
 class LabelInfo:
     """Information about a vertex label."""
@@ -55,12 +52,11 @@ class LabelInfo:
     count: int
     """Approximate vertex count."""
 
-    properties: list["PropertyInfo"]
+    properties: list[PropertyInfo]
     """List of properties defined on this label."""
 
-    indexes: list["IndexInfo"]
+    indexes: list[IndexInfo]
     """List of indexes on this label."""
-
 
 class PropertyInfo:
     """Information about a property."""
@@ -77,7 +73,6 @@ class PropertyInfo:
     is_indexed: bool
     """Whether an index exists on this property."""
 
-
 class IndexInfo:
     """Information about an index."""
 
@@ -92,7 +87,6 @@ class IndexInfo:
 
     status: str
     """Index status (e.g., 'Ready', 'Building')."""
-
 
 class ConstraintInfo:
     """Information about a constraint."""
@@ -109,7 +103,6 @@ class ConstraintInfo:
     enabled: bool
     """Whether the constraint is enabled."""
 
-
 class BulkStats:
     """Statistics from a bulk loading operation."""
 
@@ -121,7 +114,6 @@ class BulkStats:
 
     duration_secs: float
     """Total duration in seconds."""
-
 
 class IndexRebuildTask:
     """Information about an index rebuild task."""
@@ -135,9 +127,8 @@ class IndexRebuildTask:
     status: str
     """Task status."""
 
-    error: Optional[str]
+    error: str | None
     """Error message if failed."""
-
 
 class CompactionStats:
     """Statistics from a compaction operation."""
@@ -157,7 +148,6 @@ class CompactionStats:
     crdt_merges: int
     """Number of CRDT merge operations."""
 
-
 # =============================================================================
 # Builder Classes
 # =============================================================================
@@ -166,7 +156,7 @@ class DatabaseBuilder:
     """Builder for creating or opening a Uni database."""
 
     @staticmethod
-    def open(path: str) -> "DatabaseBuilder":
+    def open(path: str) -> DatabaseBuilder:
         """
         Open a database, creating it if it doesn't exist.
 
@@ -179,7 +169,7 @@ class DatabaseBuilder:
         ...
 
     @staticmethod
-    def create(path: str) -> "DatabaseBuilder":
+    def create(path: str) -> DatabaseBuilder:
         """
         Create a new database. Fails if it already exists.
 
@@ -195,7 +185,7 @@ class DatabaseBuilder:
         ...
 
     @staticmethod
-    def open_existing(path: str) -> "DatabaseBuilder":
+    def open_existing(path: str) -> DatabaseBuilder:
         """
         Open an existing database. Fails if it doesn't exist.
 
@@ -211,7 +201,7 @@ class DatabaseBuilder:
         ...
 
     @staticmethod
-    def temporary() -> "DatabaseBuilder":
+    def temporary() -> DatabaseBuilder:
         """
         Create a temporary in-memory database.
 
@@ -220,7 +210,7 @@ class DatabaseBuilder:
         """
         ...
 
-    def cache_size(self, bytes: int) -> "DatabaseBuilder":
+    def cache_size(self, bytes: int) -> DatabaseBuilder:
         """
         Set the cache size in bytes.
 
@@ -232,7 +222,7 @@ class DatabaseBuilder:
         """
         ...
 
-    def parallelism(self, n: int) -> "DatabaseBuilder":
+    def parallelism(self, n: int) -> DatabaseBuilder:
         """
         Set the parallelism level for query execution.
 
@@ -244,7 +234,7 @@ class DatabaseBuilder:
         """
         ...
 
-    def build(self) -> "Database":
+    def build(self) -> Database:
         """
         Build and return the configured database.
 
@@ -253,11 +243,10 @@ class DatabaseBuilder:
         """
         ...
 
-
 class QueryBuilder:
     """Builder for parameterized queries."""
 
-    def param(self, name: str, value: Any) -> "QueryBuilder":
+    def param(self, name: str, value: Any) -> QueryBuilder:
         """
         Add a query parameter.
 
@@ -288,11 +277,10 @@ class QueryBuilder:
         """
         ...
 
-
 class SchemaBuilder:
     """Builder for defining database schema."""
 
-    def label(self, name: str) -> "LabelBuilder":
+    def label(self, name: str) -> LabelBuilder:
         """
         Start defining a new label.
 
@@ -306,7 +294,7 @@ class SchemaBuilder:
 
     def edge_type(
         self, name: str, from_labels: list[str], to_labels: list[str]
-    ) -> "EdgeTypeBuilder":
+    ) -> EdgeTypeBuilder:
         """
         Start defining a new edge type.
 
@@ -324,11 +312,10 @@ class SchemaBuilder:
         """Apply all pending schema changes."""
         ...
 
-
 class LabelBuilder:
     """Builder for defining a vertex label."""
 
-    def document(self) -> "LabelBuilder":
+    def document(self) -> LabelBuilder:
         """
         Mark this as a document label.
 
@@ -337,7 +324,7 @@ class LabelBuilder:
         """
         ...
 
-    def property(self, name: str, data_type: str) -> "LabelBuilder":
+    def property(self, name: str, data_type: str) -> LabelBuilder:
         """
         Add a required property.
 
@@ -350,7 +337,7 @@ class LabelBuilder:
         """
         ...
 
-    def property_nullable(self, name: str, data_type: str) -> "LabelBuilder":
+    def property_nullable(self, name: str, data_type: str) -> LabelBuilder:
         """
         Add an optional (nullable) property.
 
@@ -363,7 +350,7 @@ class LabelBuilder:
         """
         ...
 
-    def vector(self, name: str, dimensions: int) -> "LabelBuilder":
+    def vector(self, name: str, dimensions: int) -> LabelBuilder:
         """
         Add a vector property.
 
@@ -376,7 +363,7 @@ class LabelBuilder:
         """
         ...
 
-    def index(self, property: str, index_type: str) -> "LabelBuilder":
+    def index(self, property: str, index_type: str) -> LabelBuilder:
         """
         Add an index on a property.
 
@@ -402,11 +389,10 @@ class LabelBuilder:
         """Apply this label immediately."""
         ...
 
-
 class EdgeTypeBuilder:
     """Builder for defining an edge type."""
 
-    def property(self, name: str, data_type: str) -> "EdgeTypeBuilder":
+    def property(self, name: str, data_type: str) -> EdgeTypeBuilder:
         """
         Add a required property.
 
@@ -419,7 +405,7 @@ class EdgeTypeBuilder:
         """
         ...
 
-    def property_nullable(self, name: str, data_type: str) -> "EdgeTypeBuilder":
+    def property_nullable(self, name: str, data_type: str) -> EdgeTypeBuilder:
         """
         Add an optional property.
 
@@ -445,11 +431,10 @@ class EdgeTypeBuilder:
         """Apply this edge type immediately."""
         ...
 
-
 class SessionBuilder:
     """Builder for creating query sessions."""
 
-    def set(self, key: str, value: Any) -> "SessionBuilder":
+    def set(self, key: str, value: Any) -> SessionBuilder:
         """
         Set a session variable.
 
@@ -462,7 +447,7 @@ class SessionBuilder:
         """
         ...
 
-    def build(self) -> "Session":
+    def build(self) -> Session:
         """
         Build and return the session.
 
@@ -470,7 +455,6 @@ class SessionBuilder:
             The configured Session.
         """
         ...
-
 
 class Session:
     """A query session with scoped variables."""
@@ -499,7 +483,7 @@ class Session:
         """
         ...
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """
         Get a session variable.
 
@@ -511,11 +495,10 @@ class Session:
         """
         ...
 
-
 class BulkWriterBuilder:
     """Builder for bulk data loading."""
 
-    def defer_vector_indexes(self, defer: bool) -> "BulkWriterBuilder":
+    def defer_vector_indexes(self, defer: bool) -> BulkWriterBuilder:
         """
         Defer vector index building until commit.
 
@@ -527,7 +510,7 @@ class BulkWriterBuilder:
         """
         ...
 
-    def defer_scalar_indexes(self, defer: bool) -> "BulkWriterBuilder":
+    def defer_scalar_indexes(self, defer: bool) -> BulkWriterBuilder:
         """
         Defer scalar index building until commit.
 
@@ -539,7 +522,7 @@ class BulkWriterBuilder:
         """
         ...
 
-    def batch_size(self, size: int) -> "BulkWriterBuilder":
+    def batch_size(self, size: int) -> BulkWriterBuilder:
         """
         Set the batch size for writes.
 
@@ -551,7 +534,7 @@ class BulkWriterBuilder:
         """
         ...
 
-    def async_indexes(self, enabled: bool) -> "BulkWriterBuilder":
+    def async_indexes(self, enabled: bool) -> BulkWriterBuilder:
         """
         Enable asynchronous index building.
 
@@ -563,7 +546,7 @@ class BulkWriterBuilder:
         """
         ...
 
-    def build(self) -> "BulkWriter":
+    def build(self) -> BulkWriter:
         """
         Build and return the bulk writer.
 
@@ -572,13 +555,10 @@ class BulkWriterBuilder:
         """
         ...
 
-
 class BulkWriter:
     """High-performance bulk data loader."""
 
-    def insert_vertices(
-        self, label: str, vertices: list[dict[str, Any]]
-    ) -> list[int]:
+    def insert_vertices(self, label: str, vertices: list[dict[str, Any]]) -> list[int]:
         """
         Insert multiple vertices.
 
@@ -618,11 +598,10 @@ class BulkWriter:
         """Abort the bulk write operation."""
         ...
 
-
 class VectorSearchBuilder:
     """Builder for vector similarity search."""
 
-    def k(self, k: int) -> "VectorSearchBuilder":
+    def k(self, k: int) -> VectorSearchBuilder:
         """
         Set the number of results to return.
 
@@ -634,7 +613,7 @@ class VectorSearchBuilder:
         """
         ...
 
-    def threshold(self, threshold: float) -> "VectorSearchBuilder":
+    def threshold(self, threshold: float) -> VectorSearchBuilder:
         """
         Set the maximum distance threshold.
 
@@ -664,7 +643,6 @@ class VectorSearchBuilder:
         """
         ...
 
-
 # =============================================================================
 # Transaction
 # =============================================================================
@@ -673,7 +651,7 @@ class Transaction:
     """A database transaction."""
 
     def query(
-        self, cypher: str, params: Optional[dict[str, Any]] = None
+        self, cypher: str, params: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
         """
         Execute a query within this transaction.
@@ -694,7 +672,6 @@ class Transaction:
     def rollback(self) -> None:
         """Rollback the transaction."""
         ...
-
 
 # =============================================================================
 # Database
@@ -725,7 +702,7 @@ class Database:
     # -------------------------------------------------------------------------
 
     def query(
-        self, cypher: str, params: Optional[dict[str, Any]] = None
+        self, cypher: str, params: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
         """
         Execute a Cypher query.
@@ -886,7 +863,7 @@ class Database:
         """List all edge type names."""
         ...
 
-    def get_label_info(self, name: str) -> Optional[LabelInfo]:
+    def get_label_info(self, name: str) -> LabelInfo | None:
         """Get detailed information about a label."""
         ...
 
@@ -913,7 +890,7 @@ class Database:
         """
         ...
 
-    def rebuild_indexes(self, label: str, async_: bool = False) -> Optional[str]:
+    def rebuild_indexes(self, label: str, async_: bool = False) -> str | None:
         """Rebuild all indexes for a label."""
         ...
 
@@ -993,7 +970,7 @@ class Database:
     # Snapshot Methods
     # -------------------------------------------------------------------------
 
-    def create_snapshot(self, name: Optional[str] = None) -> str:
+    def create_snapshot(self, name: str | None = None) -> str:
         """Create a snapshot and return its ID."""
         ...
 
@@ -1005,7 +982,7 @@ class Database:
         """Restore the database to a snapshot."""
         ...
 
-    def at_snapshot(self, snapshot_id: str) -> "Database":
+    def at_snapshot(self, snapshot_id: str) -> Database:
         """Open a read-only view at a snapshot."""
         ...
 
@@ -1033,6 +1010,6 @@ class Database:
         """Flush all pending writes to storage."""
         ...
 
-    def uid(self, label: str, vid: int) -> Optional[str]:
+    def uid(self, label: str, vid: int) -> str | None:
         """Get the UID for a vertex ID."""
         ...

@@ -2,7 +2,7 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use anyhow::Result;
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::test]
 async fn test_ddl_execution() -> Result<()> {

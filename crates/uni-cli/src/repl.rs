@@ -7,7 +7,7 @@ use prettytable::{Cell, Row, Table};
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 use std::time::Instant;
-use uni::{ExplainOutput, ProfileOutput, QueryResult, Uni};
+use uni_db::{ExplainOutput, ProfileOutput, QueryResult, Uni};
 
 pub async fn run_repl(db: Uni) -> Result<()> {
     let mut rl = DefaultEditor::new()?;

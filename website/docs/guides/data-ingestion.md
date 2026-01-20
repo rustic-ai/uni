@@ -295,7 +295,7 @@ For maximum control, use the Rust API directly.
 The `BulkWriter` API provides high-performance bulk loading with deferred index building:
 
 ```rust
-use uni::*;
+use uni_db::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -415,7 +415,7 @@ bulk.abort().await?;
 For fine-grained control, use the low-level writer:
 
 ```rust
-use uni::*;
+use uni_db::*;
 use std::sync::Arc;
 
 #[tokio::main]
@@ -444,7 +444,7 @@ async fn main() -> anyhow::Result<()> {
 ### Insert Vertices
 
 ```rust
-use uni::core::{Vid, Properties};
+use uni_db::core::{Vid, Properties};
 
 // Allocate VID
 let label_id = schema_manager.get_label_id("Paper")?;
@@ -462,7 +462,7 @@ writer.insert_vertex(vid, props).await?;
 ### Insert Edges
 
 ```rust
-use uni::core::{Eid, Direction};
+use uni_db::core::{Eid, Direction};
 
 // Get VIDs (from query or allocation)
 let src_vid: Vid = /* ... */;
@@ -667,7 +667,7 @@ split -l 1000000 huge_file.jsonl chunk_
 uni import data --batch-size 5000 ...  # Lower for less memory
 
 # Monitor memory
-RUST_LOG=uni=debug uni import ... 2>&1 | grep memory
+RUST_LOG=uni_db=debug uni import ... 2>&1 | grep memory
 ```
 
 ### Parallel Import

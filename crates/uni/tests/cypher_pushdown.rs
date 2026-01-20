@@ -5,14 +5,14 @@ use serde_json::json;
 use std::sync::Arc;
 use tempfile::tempdir;
 use tokio::sync::RwLock;
-use uni::core::schema::{DataType, SchemaManager};
-use uni::query::executor::Executor;
-use uni::query::expr::{Expr, Operator};
-use uni::query::parser::CypherParser;
-use uni::query::planner::{LogicalPlan, QueryPlanner};
-use uni::runtime::property_manager::PropertyManager;
-use uni::runtime::writer::Writer;
-use uni::storage::manager::StorageManager;
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::query::executor::Executor;
+use uni_db::query::expr::{Expr, Operator};
+use uni_db::query::parser::CypherParser;
+use uni_db::query::planner::{LogicalPlan, QueryPlanner};
+use uni_db::runtime::property_manager::PropertyManager;
+use uni_db::runtime::writer::Writer;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_inline_property_pushdown_logic() -> anyhow::Result<()> {

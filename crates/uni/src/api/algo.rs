@@ -13,7 +13,7 @@ use uni_common::core::id::Vid;
 /// # Example
 ///
 /// ```no_run
-/// # async fn example(db: &uni::Uni) -> uni::Result<()> {
+/// # async fn example(db: &uni_db::Uni) -> uni_db::Result<()> {
 /// // Run PageRank
 /// let results = db.algo()
 ///     .pagerank()

@@ -6,11 +6,11 @@ use object_store::path::Path as ObjectStorePath;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::{Eid, Vid};
-use uni::core::schema::SchemaManager;
-use uni::runtime::wal::WriteAheadLog;
-use uni::runtime::writer::Writer;
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::{Eid, Vid};
+use uni_db::core::schema::SchemaManager;
+use uni_db::runtime::wal::WriteAheadLog;
+use uni_db::runtime::writer::Writer;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_wal_preservation_after_flush() -> anyhow::Result<()> {

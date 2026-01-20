@@ -2,7 +2,7 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use anyhow::Result;
-use uni::{DataType, Uni};
+use uni_db::{DataType, Uni};
 
 #[tokio::test]
 async fn test_snapshots_and_time_travel() -> Result<()> {

@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "uni"
+name = "uni-db"
 version = "0.1.0"
 description = "Python bindings for Uni Graph Database"
 authors = [
@@ -35,10 +35,33 @@ dev = [
     "ruff>=0.1.0",
     "black>=23.0.0",
     "mypy>=1.0.0",
+    "pytest>=7.0.0",
 ]
 docs = [
     "pdoc>=14.0.0",
 ]
+
+[tool.poetry]
+name = "uni-db"
+version = "0.1.0"
+description = "Python bindings for Uni Graph Database"
+authors = ["Dragonscale Industries Inc. <dev@dragonscale.ai>"]
+license = "Apache-2.0"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+maturin = ">=1.0,<2.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = ">=0.1.0"
+black = ">=23.0.0"
+mypy = ">=1.0.0"
+pytest = ">=7.0.0"
+
+[tool.poetry.group.docs.dependencies]
+pdoc = ">=14.0.0"
 
 [tool.black]
 line-length = 88

@@ -2,7 +2,7 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use anyhow::Result;
-use uni::{DataType, Uni};
+use uni_db::{DataType, Uni};
 
 #[tokio::test]
 async fn test_path_variable() -> Result<()> {
@@ -43,13 +43,13 @@ async fn test_path_variable() -> Result<()> {
     // Currently public API Row::get returns FromValue types.
     // types::Path is public.
     // Let's see if we can get it as Path
-    // uni::Path is re-exported from uni-query::types::Path
+    // uni_db::Path is re-exported from uni-query::types::Path
 
-    let p1: uni::Path = row1.get("p")?;
+    let p1: uni_db::Path = row1.get("p")?;
     assert_eq!(p1.nodes.len(), 2); // Alice, Bob
     assert_eq!(p1.edges.len(), 1); // KNOWS
 
-    let p2: uni::Path = row2.get("p")?;
+    let p2: uni_db::Path = row2.get("p")?;
     assert_eq!(p2.nodes.len(), 3); // Alice, Bob, Charlie
     assert_eq!(p2.edges.len(), 2); // KNOWS, KNOWS
 
@@ -61,7 +61,7 @@ async fn test_path_variable() -> Result<()> {
     // nodes(p) returns List<Node>
     // but Row::get returns FromValue.
     // Vec<Node> implements FromValue via Vec<T>.
-    let ns: Vec<uni::Node> = row.get("ns")?;
+    let ns: Vec<uni_db::Node> = row.get("ns")?;
     assert_eq!(ns.len(), 2);
     // Note: Node objects reconstructed from Path currently have empty labels/properties in executor
     // because fetch logic is not implemented inside build_traverse_match for efficiency/complexity reasons yet.
@@ -69,7 +69,7 @@ async fn test_path_variable() -> Result<()> {
     // We can verify IDs match.
 
     // relationships(p) returns List<Edge>
-    let rels: Vec<uni::Edge> = row.get("rels")?;
+    let rels: Vec<uni_db::Edge> = row.get("rels")?;
     assert_eq!(rels.len(), 1);
 
     Ok(())

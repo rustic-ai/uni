@@ -4,11 +4,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::Vid;
-use uni::core::schema::SchemaManager;
-use uni::runtime::writer::Writer;
-use uni::storage::compaction::Compactor;
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::Vid;
+use uni_db::core::schema::SchemaManager;
+use uni_db::runtime::writer::Writer;
+use uni_db::storage::compaction::Compactor;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_compaction_l1_to_l2() -> anyhow::Result<()> {
@@ -113,8 +113,8 @@ async fn test_compaction_l1_to_l2() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_compaction_vertices_crdt() -> anyhow::Result<()> {
     use serde_json::Value;
-    use uni::core::schema::{CrdtType, DataType};
     use uni_crdt::{Crdt, GCounter};
+    use uni_db::core::schema::{CrdtType, DataType};
 
     let temp_dir = tempdir()?;
     let path = temp_dir.path();
@@ -192,7 +192,7 @@ async fn test_compaction_vertices_crdt() -> anyhow::Result<()> {
     // Use PropertyManager to fetch (it should read from storage)
     // Actually, we can just read the row directly to verify compaction logic
     // But PropertyManager is the standard way.
-    let prop_manager = uni::runtime::property_manager::PropertyManager::new(
+    let prop_manager = uni_db::runtime::property_manager::PropertyManager::new(
         storage.clone(),
         schema_manager.clone(),
         100,
@@ -215,10 +215,10 @@ async fn test_compaction_vertices_crdt() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_compaction_procedures() -> anyhow::Result<()> {
-    use uni::query::executor::Executor;
-    use uni::query::parser::CypherParser;
-    use uni::query::planner::QueryPlanner;
-    use uni::runtime::property_manager::PropertyManager;
+    use uni_db::query::executor::Executor;
+    use uni_db::query::parser::CypherParser;
+    use uni_db::query::planner::QueryPlanner;
+    use uni_db::runtime::property_manager::PropertyManager;
 
     let temp_dir = tempdir()?;
     let path = temp_dir.path();

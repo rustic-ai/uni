@@ -4,9 +4,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::{Eid, Vid};
-use uni::core::schema::SchemaManager;
-use uni::storage::delta::{DeltaDataset, L1Entry, Op};
+use uni_db::core::id::{Eid, Vid};
+use uni_db::core::schema::SchemaManager;
+use uni_db::storage::delta::{DeltaDataset, L1Entry, Op};
 
 #[tokio::test]
 async fn test_delta_operations() -> anyhow::Result<()> {

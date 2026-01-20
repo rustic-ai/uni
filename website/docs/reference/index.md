@@ -72,7 +72,7 @@ let config = StorageConfig {
 
 | Variable | Description |
 |----------|-------------|
-| `RUST_LOG` | Log level (`uni=debug`, `uni::storage=trace`) |
+| `RUST_LOG` | Log level (`uni=debug`, `uni_db::storage=trace`) |
 | `UNI_STORAGE_PATH` | Default storage path |
 | `UNI_CACHE_DIR` | Local cache directory |
 

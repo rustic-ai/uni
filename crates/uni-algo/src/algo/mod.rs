@@ -18,7 +18,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use uni::algo::{ProjectionBuilder, PageRank, Algorithm};
+//! use uni_db::algo::{ProjectionBuilder, PageRank, Algorithm};
 //!
 //! // Build projection
 //! let projection = ProjectionBuilder::new(storage, cache, l0)

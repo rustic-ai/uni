@@ -3,9 +3,9 @@
 
 use anyhow::Result;
 use std::sync::Arc;
-use uni::query::parser::CypherParser;
-use uni::query::planner::QueryPlanner;
-use uni::{DataType, Uni};
+use uni_db::query::parser::CypherParser;
+use uni_db::query::planner::QueryPlanner;
+use uni_db::{DataType, Uni};
 
 #[tokio::test]
 async fn test_valid_at_function() -> Result<()> {

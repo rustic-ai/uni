@@ -3,9 +3,9 @@
 
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::{UniId, Vid};
-use uni::core::schema::SchemaManager;
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::{UniId, Vid};
+use uni_db::core::schema::SchemaManager;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_uid_indexing() -> anyhow::Result<()> {

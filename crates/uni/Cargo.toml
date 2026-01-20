@@ -1,5 +1,5 @@
 [package]
-name = "uni"
+name = "uni-db"
 description = "Embedded graph database with OpenCypher queries, vector search, and columnar storage"
 version.workspace = true
 edition.workspace = true

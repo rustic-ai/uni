@@ -5,7 +5,7 @@ use object_store::local::LocalFileSystem;
 use object_store::path::Path as ObjectStorePath;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::runtime::id_allocator::IdAllocator;
+use uni_db::runtime::id_allocator::IdAllocator;
 
 #[tokio::test]
 async fn test_id_allocation_persistence_and_restart() -> anyhow::Result<()> {

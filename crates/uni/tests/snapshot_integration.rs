@@ -4,9 +4,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::schema::SchemaManager;
-use uni::runtime::writer::Writer;
-use uni::storage::manager::StorageManager;
+use uni_db::core::schema::SchemaManager;
+use uni_db::runtime::writer::Writer;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_snapshot_creation_on_flush() -> anyhow::Result<()> {

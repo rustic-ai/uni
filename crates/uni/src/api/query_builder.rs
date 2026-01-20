@@ -13,8 +13,8 @@ use uni_query::{QueryCursor, QueryResult, Value};
 /// # Examples
 ///
 /// ```no_run
-/// # use uni::{Uni, Value};
-/// # async fn example(db: &Uni) -> uni::Result<()> {
+/// # use uni_db::{Uni, Value};
+/// # async fn example(db: &Uni) -> uni_db::Result<()> {
 /// let results = db.query_with("MATCH (n:Person) WHERE n.age > $min_age RETURN n")
 ///     .param("min_age", 18)
 ///     .timeout(std::time::Duration::from_secs(5))

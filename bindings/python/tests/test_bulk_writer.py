@@ -4,8 +4,9 @@
 """Tests for BulkWriter API."""
 
 import tempfile
+
 import pytest
-import uni
+import uni_db
 
 
 class TestBulkWriter:
@@ -15,7 +16,7 @@ class TestBulkWriter:
     def db(self):
         """Create a database with schema for bulk loading."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Person")
             db.add_property("Person", "name", "string", False)
             db.add_property("Person", "age", "int", False)
@@ -44,7 +45,7 @@ class TestBulkWriter:
         )
 
         assert len(vids) == 3
-        stats = writer.commit()
+        writer.commit()
 
         # Verify vertices were inserted
         results = db.query("MATCH (n:Person) RETURN n.name AS name ORDER BY n.name")
@@ -118,7 +119,7 @@ class TestBulkStats:
     def test_bulk_stats_attributes(self):
         """Test BulkStats has expected attributes."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Test")
 
             writer = db.bulk_writer().build()

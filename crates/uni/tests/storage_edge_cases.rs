@@ -7,10 +7,10 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::Vid;
-use uni::core::schema::{DataType, SchemaManager};
-use uni::storage::delta::Op;
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::Vid;
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::storage::delta::Op;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_vertex_dataset_batch_writes() -> Result<()> {
@@ -67,10 +67,10 @@ async fn test_delta_dataset_merging() -> Result<()> {
     let schema = schema_manager.schema();
 
     // Run 1: Insert E1 (ver 1)
-    let entry1 = uni::storage::delta::L1Entry {
+    let entry1 = uni_db::storage::delta::L1Entry {
         src_vid: Vid::new(1, 1),
         dst_vid: Vid::new(1, 2),
-        eid: uni::core::id::Eid::new(tid, 1),
+        eid: uni_db::core::id::Eid::new(tid, 1),
         op: Op::Insert,
         version: 1,
         properties: HashMap::new(),
@@ -79,10 +79,10 @@ async fn test_delta_dataset_merging() -> Result<()> {
     delta_ds.write_run(batch1).await?;
 
     // Run 2: Delete E1 (ver 2)
-    let entry2 = uni::storage::delta::L1Entry {
+    let entry2 = uni_db::storage::delta::L1Entry {
         src_vid: Vid::new(1, 1),
         dst_vid: Vid::new(1, 2),
-        eid: uni::core::id::Eid::new(tid, 1),
+        eid: uni_db::core::id::Eid::new(tid, 1),
         op: Op::Delete,
         version: 2,
         properties: HashMap::new(),

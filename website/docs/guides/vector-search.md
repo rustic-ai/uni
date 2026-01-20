@@ -237,7 +237,7 @@ LIMIT 10
 Uni includes FastEmbed for local embedding generation:
 
 ```rust
-use uni::embedding::{EmbeddingService, FastEmbedService, FastEmbedModel};
+use uni_db::embedding::{EmbeddingService, FastEmbedService, FastEmbedModel};
 
 // Create service
 let service = FastEmbedService::new(FastEmbedModel::AllMiniLML6V2)?;

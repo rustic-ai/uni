@@ -38,7 +38,7 @@ RETURN n
 
 ## 3. Logical Plan
 
-New logical operators will be added to `uni::query::logical_plan`.
+New logical operators will be added to `uni_db::query::logical_plan`.
 
 ```rust
 pub enum LogicalOperator {

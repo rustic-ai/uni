@@ -6,8 +6,8 @@ use arrow_array::{RecordBatch, UInt64Array};
 use lance::dataset::WriteMode;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::schema::{DataType, SchemaManager};
-use uni::storage::manager::StorageManager;
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_vector_search() -> anyhow::Result<()> {

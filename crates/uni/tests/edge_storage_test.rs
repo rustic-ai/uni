@@ -5,8 +5,8 @@ use arrow_array::{BooleanArray, RecordBatch, UInt64Array};
 use lance::dataset::WriteMode;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::schema::SchemaManager;
-use uni::storage::edge::EdgeDataset;
+use uni_db::core::schema::SchemaManager;
+use uni_db::storage::edge::EdgeDataset;
 
 #[tokio::test]
 async fn test_edge_storage() -> anyhow::Result<()> {

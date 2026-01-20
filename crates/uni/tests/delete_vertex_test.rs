@@ -7,9 +7,9 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::schema::{DataType, SchemaManager};
-use uni::runtime::writer::Writer;
-use uni::storage::manager::StorageManager;
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::runtime::writer::Writer;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_delete_vertex_persistence() -> anyhow::Result<()> {

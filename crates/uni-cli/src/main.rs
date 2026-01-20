@@ -121,7 +121,7 @@ async fn main() -> Result<()> {
                 port, path
             );
 
-            let builder = uni::Uni::open(path.to_string_lossy().to_string());
+            let builder = uni_db::Uni::open(path.to_string_lossy().to_string());
             let uni = builder.build().await?;
 
             // Build server config from CLI args
@@ -145,18 +145,18 @@ async fn main() -> Result<()> {
             uni_server::start_server(uni, port, config).await?;
         }
         Commands::Query { statement, path } => {
-            let builder = uni::Uni::open(path.to_string_lossy().to_string());
+            let builder = uni_db::Uni::open(path.to_string_lossy().to_string());
             let db = builder.build().await?;
 
             repl::execute_query(&db, &statement).await;
         }
         Commands::Repl { path } => {
-            let builder = uni::Uni::open(path.to_string_lossy().to_string());
+            let builder = uni_db::Uni::open(path.to_string_lossy().to_string());
             let db = builder.build().await?;
             repl::run_repl(db).await?;
         }
         Commands::Snapshot { command, path } => {
-            let builder = uni::Uni::open(path.to_string_lossy().to_string());
+            let builder = uni_db::Uni::open(path.to_string_lossy().to_string());
             let db = builder.build().await?;
 
             match command {

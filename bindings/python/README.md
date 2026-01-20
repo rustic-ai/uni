@@ -1,6 +1,6 @@
 # Uni Python Bindings
 
-[![PyPI](https://img.shields.io/pypi/v/uni.svg)](https://pypi.org/project/uni/)
+[![PyPI](https://img.shields.io/pypi/v/uni-db.svg)](https://pypi.org/project/uni-db/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Python bindings for the **Uni** embedded graph database.
@@ -19,10 +19,10 @@ maturin develop
 ## Usage
 
 ```python
-import uni
+import uni_db
 
 # Open or create a database
-db = uni.Database("./my_db")
+db = uni_db.Database("./my_db")
 
 # Create Schema
 db.create_label("Person")
@@ -49,11 +49,11 @@ tx.commit()
 
 Run tests:
 ```bash
-# Build libuni.so for testing (if not using maturin develop)
+# Build libuni_db.so for testing (if not using maturin develop)
 cargo build
-cp ../../target/debug/libuni.so uni.so  # Linux
+cp ../../target/debug/libuni_db.so uni_db.so  # Linux
 # OR
-cp ../../target/debug/libuni.dylib uni.so # Mac
+cp ../../target/debug/libuni_db.dylib uni_db.so # Mac
 
 # Run tests
 python3 tests/test_basic.py

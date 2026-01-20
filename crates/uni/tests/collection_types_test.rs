@@ -3,8 +3,8 @@
 
 use std::collections::HashMap;
 use tempfile::tempdir;
-use uni::api::Uni;
-use uni::core::schema::{DataType, SchemaManager};
+use uni_db::api::Uni;
+use uni_db::core::schema::{DataType, SchemaManager};
 
 #[tokio::test]
 async fn test_collection_types_storage_and_query() -> anyhow::Result<()> {
@@ -49,7 +49,7 @@ async fn test_collection_types_storage_and_query() -> anyhow::Result<()> {
     let query_fetch = "MATCH (n:Node) RETURN n.tags, n.counters";
     let res = db.query(query_fetch).await?;
 
-    // Rows are uni::Value. Convert to JSON for easier assertion.
+    // Rows are uni_db::Value. Convert to JSON for easier assertion.
     let fetched_tags: Vec<String> =
         serde_json::from_value(res.rows[0].value("n.tags").unwrap().clone().into())?;
     assert_eq!(fetched_tags, vec!["alpha", "beta", "gamma"]);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024-2026 Dragonscale Team
 
-use uni::query::parser::CypherParser;
+use uni_db::query::parser::CypherParser;
 
 #[test]
 fn test_cypher_subquery_parser() -> anyhow::Result<()> {

@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use std::time::Duration;
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::test]
 async fn test_query_timeout() -> Result<()> {

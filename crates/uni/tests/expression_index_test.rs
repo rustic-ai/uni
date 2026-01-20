@@ -2,7 +2,7 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use anyhow::Result;
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::test]
 async fn test_expression_index() -> Result<()> {
@@ -21,7 +21,7 @@ async fn test_expression_index() -> Result<()> {
         .indexes
         .iter()
         .find(|i| {
-            if let uni::core::schema::IndexDefinition::Scalar(c) = i {
+            if let uni_db::core::schema::IndexDefinition::Scalar(c) = i {
                 c.name == "lower_email"
             } else {
                 false
@@ -33,7 +33,7 @@ async fn test_expression_index() -> Result<()> {
     let props = schema.properties.get("User").unwrap();
     // Parser uppercases function names
     let expr_str = "LOWER(u.email)";
-    let gen_col = uni::core::schema::SchemaManager::generated_column_name(expr_str);
+    let gen_col = uni_db::core::schema::SchemaManager::generated_column_name(expr_str);
     if !props.contains_key(&gen_col) {
         println!("Available properties: {:?}", props.keys());
     }

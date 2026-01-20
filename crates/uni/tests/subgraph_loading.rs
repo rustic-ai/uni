@@ -7,12 +7,12 @@ use lance::dataset::WriteMode;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::{Eid, Vid};
-use uni::core::schema::SchemaManager;
-use uni::runtime::Direction;
-use uni::runtime::l0::L0Buffer;
-use uni::storage::delta::{L1Entry, Op};
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::{Eid, Vid};
+use uni_db::core::schema::SchemaManager;
+use uni_db::runtime::Direction;
+use uni_db::runtime::l0::L0Buffer;
+use uni_db::storage::delta::{L1Entry, Op};
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_subgraph_loading_merge_logic() -> anyhow::Result<()> {

@@ -55,9 +55,9 @@ impl<'a> VectorSearchBuilder<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # use uni::Uni;
+    /// # use uni_db::Uni;
     /// # #[tokio::main]
-    /// # async fn main() -> Result<(), uni::UniError> {
+    /// # async fn main() -> Result<(), uni_db::UniError> {
     /// # let db = Uni::open("db").build().await?;
     /// let query_vector = vec![0.1, 0.2, 0.3];
     /// let matches = db.vector_search_with("Document", "embedding", &query_vector)

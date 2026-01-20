@@ -45,7 +45,7 @@ pub mod core {
 pub mod storage {
     pub use crate::store::storage::*;
     // Fix for tests expecting IndexManager in storage root or similar?
-    // tests use uni::storage::manager::StorageManager.
+    // tests use uni_db::storage::manager::StorageManager.
     // crate::store::storage has manager.
 }
 
@@ -58,7 +58,7 @@ pub mod query {
 }
 
 pub mod algo {
-    // Tests use uni::algo::* (from src/algo).
+    // Tests use uni_db::algo::* (from src/algo).
     // uni-algo has `algo` module.
     pub use crate::algo_crate::algo::*;
 }

@@ -6,14 +6,15 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+publish = false
 
 [lib]
-name = "uni"
+name = "uni_db"
 crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.24", features = ["extension-module", "abi3-py310"] }
-uni = { workspace = true }
+uni-db = { workspace = true }
 uni-common = { workspace = true }
 tokio = { workspace = true }
 serde_json = { workspace = true }

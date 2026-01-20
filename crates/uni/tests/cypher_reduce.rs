@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024-2026 Dragonscale Team
 
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::test]
 async fn test_reduce_simple() {

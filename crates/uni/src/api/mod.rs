@@ -41,10 +41,10 @@ use uni_store::runtime::writer::Writer;
 ///
 /// ## Local Usage
 /// ```no_run
-/// use uni::Uni;
+/// use uni_db::Uni;
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), uni::UniError> {
+/// async fn main() -> Result<(), uni_db::UniError> {
 ///     let db = Uni::open("./my_db")
 ///         .build()
 ///         .await?;
@@ -60,10 +60,10 @@ use uni_store::runtime::writer::Writer;
 /// Store bulk data in S3 (or GCS/Azure) but keep WAL and Metadata local for low latency.
 ///
 /// ```no_run
-/// use uni::Uni;
+/// use uni_db::Uni;
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), uni::UniError> {
+/// async fn main() -> Result<(), uni_db::UniError> {
 ///     // Requires `object_store` features enabled (aws, gcp, azure)
 ///     let db = Uni::open("./local_meta")
 ///         .hybrid("./local_meta", "s3://my-bucket/graph-data")

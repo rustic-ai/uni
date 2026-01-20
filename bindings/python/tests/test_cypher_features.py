@@ -4,8 +4,9 @@
 """Tests for Cypher features accessible through the Python API."""
 
 import tempfile
+
 import pytest
-import uni
+import uni_db
 
 
 class TestExplainProfile:
@@ -15,7 +16,7 @@ class TestExplainProfile:
     def db_with_data(self):
         """Create a database with test data."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Person")
             db.add_property("Person", "name", "string", False)
             db.add_property("Person", "age", "int", False)
@@ -58,7 +59,9 @@ class TestExplainProfile:
 
     def test_explain_includes_index_usage(self, db_with_data):
         """Test that explain shows index usage information."""
-        result = db_with_data.explain("MATCH (n:Person) WHERE n.name = 'Alice' RETURN n")
+        result = db_with_data.explain(
+            "MATCH (n:Person) WHERE n.name = 'Alice' RETURN n"
+        )
 
         assert "index_usage" in result
         assert isinstance(result["index_usage"], list)
@@ -97,7 +100,7 @@ class TestQueryWithParameters:
     def db(self):
         """Create a test database."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Person")
             db.add_property("Person", "name", "string", False)
             db.add_property("Person", "age", "int", False)
@@ -108,7 +111,9 @@ class TestQueryWithParameters:
 
     def test_query_with_string_param(self, db):
         """Test query with string parameter."""
-        builder = db.query_with("MATCH (n:Person) WHERE n.name = $name RETURN n.age AS age")
+        builder = db.query_with(
+            "MATCH (n:Person) WHERE n.name = $name RETURN n.age AS age"
+        )
         builder.param("name", "Alice")
         results = builder.fetch_all()
 
@@ -117,7 +122,9 @@ class TestQueryWithParameters:
 
     def test_query_with_int_param(self, db):
         """Test query with integer parameter."""
-        builder = db.query_with("MATCH (n:Person) WHERE n.age > $min_age RETURN n.name AS name")
+        builder = db.query_with(
+            "MATCH (n:Person) WHERE n.age > $min_age RETURN n.name AS name"
+        )
         builder.param("min_age", 27)
         results = builder.fetch_all()
 
@@ -143,15 +150,21 @@ class TestAggregations:
     def db(self):
         """Create a database with test data for aggregations."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Product")
             db.add_property("Product", "category", "string", False)
             db.add_property("Product", "price", "float", False)
             db.add_property("Product", "quantity", "int", False)
 
-            db.query("CREATE (p:Product {category: 'Electronics', price: 100.0, quantity: 5})")
-            db.query("CREATE (p:Product {category: 'Electronics', price: 200.0, quantity: 3})")
-            db.query("CREATE (p:Product {category: 'Books', price: 20.0, quantity: 10})")
+            db.query(
+                "CREATE (p:Product {category: 'Electronics', price: 100.0, quantity: 5})"
+            )
+            db.query(
+                "CREATE (p:Product {category: 'Electronics', price: 200.0, quantity: 3})"
+            )
+            db.query(
+                "CREATE (p:Product {category: 'Books', price: 20.0, quantity: 10})"
+            )
             db.query("CREATE (p:Product {category: 'Books', price: 30.0, quantity: 8})")
             db.flush()
             yield db
@@ -207,7 +220,7 @@ class TestOrderingAndLimits:
     def db(self):
         """Create a database with numbered test data."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Item")
             db.add_property("Item", "num", "int", False)
             db.add_property("Item", "name", "string", False)
@@ -219,12 +232,16 @@ class TestOrderingAndLimits:
 
     def test_order_by_asc(self, db):
         """Test ORDER BY ascending."""
-        results = db.query("MATCH (n:Item) RETURN n.num AS num ORDER BY n.num ASC LIMIT 3")
+        results = db.query(
+            "MATCH (n:Item) RETURN n.num AS num ORDER BY n.num ASC LIMIT 3"
+        )
         assert [r["num"] for r in results] == [0, 1, 2]
 
     def test_order_by_desc(self, db):
         """Test ORDER BY descending."""
-        results = db.query("MATCH (n:Item) RETURN n.num AS num ORDER BY n.num DESC LIMIT 3")
+        results = db.query(
+            "MATCH (n:Item) RETURN n.num AS num ORDER BY n.num DESC LIMIT 3"
+        )
         assert [r["num"] for r in results] == [9, 8, 7]
 
     def test_limit(self, db):
@@ -234,7 +251,9 @@ class TestOrderingAndLimits:
 
     def test_skip(self, db):
         """Test SKIP clause."""
-        results = db.query("MATCH (n:Item) RETURN n.num AS num ORDER BY n.num SKIP 5 LIMIT 5")
+        results = db.query(
+            "MATCH (n:Item) RETURN n.num AS num ORDER BY n.num SKIP 5 LIMIT 5"
+        )
         assert [r["num"] for r in results] == [5, 6, 7, 8, 9]
 
 
@@ -245,7 +264,7 @@ class TestPatternMatching:
     def db(self):
         """Create a database with a simple social graph."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Person")
             db.add_property("Person", "name", "string", False)
             db.create_edge_type("KNOWS", ["Person"], ["Person"])

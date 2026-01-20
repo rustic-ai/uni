@@ -2,7 +2,7 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use anyhow::Result;
-use uni::{DataType, UniSync};
+use uni_db::{DataType, UniSync};
 
 #[test]
 fn test_sync_api() -> Result<()> {

@@ -5,8 +5,9 @@
 
 import os
 import tempfile
+
 import pytest
-import uni
+import uni_db
 
 
 class TestDatabaseBuilderOpenModes:
@@ -16,7 +17,7 @@ class TestDatabaseBuilderOpenModes:
         """Test creating a new database."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "testdb")
-            db = uni.DatabaseBuilder.create(path).build()
+            db = uni_db.DatabaseBuilder.create(path).build()
             assert db is not None
             # Database should be empty
             db.create_label("Test")
@@ -28,21 +29,21 @@ class TestDatabaseBuilderOpenModes:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "testdb")
             # Create first
-            db1 = uni.DatabaseBuilder.create(path).build()
+            db1 = uni_db.DatabaseBuilder.create(path).build()
             db1.create_label("Test")
             db1.flush()
             del db1
 
             # Create again should fail
             with pytest.raises(OSError):
-                uni.DatabaseBuilder.create(path).build()
+                uni_db.DatabaseBuilder.create(path).build()
 
     def test_open_existing_database(self):
         """Test opening an existing database."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "testdb")
             # Create and add data
-            db1 = uni.DatabaseBuilder.create(path).build()
+            db1 = uni_db.DatabaseBuilder.create(path).build()
             db1.create_label("Person")
             db1.add_property("Person", "name", "string", False)
             db1.query("CREATE (n:Person {name: 'Alice'})")
@@ -50,7 +51,7 @@ class TestDatabaseBuilderOpenModes:
             del db1
 
             # Open existing
-            db2 = uni.DatabaseBuilder.open_existing(path).build()
+            db2 = uni_db.DatabaseBuilder.open_existing(path).build()
             results = db2.query("MATCH (n:Person) RETURN n.name AS name")
             assert len(results) == 1
             assert results[0]["name"] == "Alice"
@@ -60,13 +61,13 @@ class TestDatabaseBuilderOpenModes:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "nonexistent")
             with pytest.raises(OSError):
-                uni.DatabaseBuilder.open_existing(path).build()
+                uni_db.DatabaseBuilder.open_existing(path).build()
 
     def test_open_creates_if_needed(self):
         """Test that open() creates database if it doesn't exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "testdb")
-            db = uni.DatabaseBuilder.open(path).build()
+            db = uni_db.DatabaseBuilder.open(path).build()
             assert db is not None
             db.create_label("Test")
             db.execute("CREATE (n:Test)")
@@ -77,7 +78,7 @@ class TestDatabaseBuilderOpenModes:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "testdb")
             # Create and add data
-            db1 = uni.DatabaseBuilder.create(path).build()
+            db1 = uni_db.DatabaseBuilder.create(path).build()
             db1.create_label("Person")
             db1.add_property("Person", "name", "string", False)
             db1.query("CREATE (n:Person {name: 'Bob'})")
@@ -85,14 +86,14 @@ class TestDatabaseBuilderOpenModes:
             del db1
 
             # Open should see existing data
-            db2 = uni.DatabaseBuilder.open(path).build()
+            db2 = uni_db.DatabaseBuilder.open(path).build()
             results = db2.query("MATCH (n:Person) RETURN n.name AS name")
             assert len(results) == 1
             assert results[0]["name"] == "Bob"
 
     def test_temporary_database(self):
         """Test creating a temporary database."""
-        db = uni.DatabaseBuilder.temporary().build()
+        db = uni_db.DatabaseBuilder.temporary().build()
         assert db is not None
         db.create_label("Temp")
         db.add_property("Temp", "value", "int", False)
@@ -111,7 +112,7 @@ class TestDatabaseBuilderConfiguration:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "testdb")
             db = (
-                uni.DatabaseBuilder.create(path)
+                uni_db.DatabaseBuilder.create(path)
                 .cache_size(1024 * 1024 * 100)  # 100 MB
                 .build()
             )
@@ -121,7 +122,7 @@ class TestDatabaseBuilderConfiguration:
         """Test setting parallelism level."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "testdb")
-            db = uni.DatabaseBuilder.create(path).parallelism(4).build()
+            db = uni_db.DatabaseBuilder.create(path).parallelism(4).build()
             assert db is not None
 
     def test_chained_configuration(self):
@@ -129,7 +130,7 @@ class TestDatabaseBuilderConfiguration:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "testdb")
             db = (
-                uni.DatabaseBuilder.create(path)
+                uni_db.DatabaseBuilder.create(path)
                 .cache_size(1024 * 1024 * 50)
                 .parallelism(2)
                 .build()
@@ -149,7 +150,7 @@ class TestBackwardCompatibility:
     def test_database_constructor(self):
         """Test that Database(path) constructor still works."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.Database(tmpdir)
+            db = uni_db.Database(tmpdir)
             assert db is not None
             db.create_label("Legacy")
             db.execute("CREATE (n:Legacy)")

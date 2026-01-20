@@ -4,13 +4,13 @@
 use arrow_array::builder::{FixedSizeListBuilder, Float32Builder};
 use arrow_array::{Float64Array, RecordBatch, StringArray, UInt64Array};
 use std::sync::Arc;
-use uni::core::id::{Eid, UniId, Vid};
-use uni::core::schema::{DataType, SchemaManager};
-use uni::query::executor::Executor;
-use uni::query::parser::CypherParser;
-use uni::query::planner::QueryPlanner;
-use uni::runtime::property_manager::PropertyManager;
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::{Eid, UniId, Vid};
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::query::executor::Executor;
+use uni_db::query::parser::CypherParser;
+use uni_db::query::planner::QueryPlanner;
+use uni_db::runtime::property_manager::PropertyManager;
+use uni_db::storage::manager::StorageManager;
 
 // ... existing tests ...
 
@@ -148,7 +148,7 @@ async fn test_regional_sales_analytics() -> anyhow::Result<()> {
             &[region_vid],
             &[shipped_type],
             1,
-            uni::runtime::Direction::Incoming,
+            uni_db::runtime::Direction::Incoming,
             None,
         )
         .await?;
@@ -431,7 +431,7 @@ async fn test_document_knowledge_graph() -> anyhow::Result<()> {
             &[vid_0],
             &[cites_type],
             1,
-            uni::runtime::Direction::Outgoing,
+            uni_db::runtime::Direction::Outgoing,
             None,
         )
         .await?;
@@ -528,7 +528,7 @@ async fn test_identity_provenance() -> anyhow::Result<()> {
             &[vid_b_resolved],
             &[derived_type],
             1,
-            uni::runtime::Direction::Outgoing,
+            uni_db::runtime::Direction::Outgoing,
             None,
         )
         .await?;

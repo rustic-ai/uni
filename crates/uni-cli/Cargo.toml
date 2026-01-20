@@ -6,13 +6,14 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+publish = false
 
 [[bin]]
 name = "uni"
 path = "src/main.rs"
 
 [dependencies]
-uni = { workspace = true }
+uni-db = { workspace = true }
 uni-common = { workspace = true }
 uni-store = { workspace = true }
 uni-server = { workspace = true }

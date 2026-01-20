@@ -27,7 +27,7 @@ use std::collections::HashMap;
 use std::env;
 use tempfile::{TempDir, tempdir};
 use tokio::runtime::Runtime;
-use uni::{Uni, UniConfig};
+use uni_db::{Uni, UniConfig};
 
 /// Schema JSON for benchmark - defines Person label with properties and KNOWS edge type
 const SCHEMA_JSON: &str = r#"{

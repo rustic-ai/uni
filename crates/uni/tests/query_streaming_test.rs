@@ -2,7 +2,7 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use anyhow::Result;
-use uni::{DataType, Uni};
+use uni_db::{DataType, Uni};
 
 #[tokio::test]
 async fn test_query_cursor_streaming() -> Result<()> {
@@ -39,7 +39,7 @@ async fn test_query_cursor_streaming() -> Result<()> {
 
     // Test with smaller batch size in config if possible
     let db2 = Uni::in_memory()
-        .config(uni::UniConfig {
+        .config(uni_db::UniConfig {
             batch_size: 10,
             ..Default::default()
         })

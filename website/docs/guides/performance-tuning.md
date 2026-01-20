@@ -437,7 +437,7 @@ Monitor and limit memory usage:
 
 ```bash
 # Monitor memory during query
-RUST_LOG=uni=debug uni query "..." 2>&1 | grep -i memory
+RUST_LOG=uni_db=debug uni query "..." 2>&1 | grep -i memory
 
 # Set memory limits
 export UNI_MAX_MEMORY_MB=4096

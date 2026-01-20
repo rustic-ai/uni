@@ -2,7 +2,7 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use anyhow::Result;
-use uni::{DataType, IndexType, ScalarType, Uni, VectorAlgo, VectorIndexCfg, VectorMetric};
+use uni_db::{DataType, IndexType, ScalarType, Uni, VectorAlgo, VectorIndexCfg, VectorMetric};
 
 #[tokio::test]
 async fn test_api_vector_search() -> Result<()> {

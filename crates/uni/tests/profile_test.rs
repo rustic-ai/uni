@@ -2,7 +2,7 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use tempfile::tempdir;
-use uni::UniBuilder;
+use uni_db::UniBuilder;
 
 #[tokio::test]
 async fn test_profile_basic() -> anyhow::Result<()> {

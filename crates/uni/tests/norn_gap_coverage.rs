@@ -2,9 +2,9 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use anyhow::Result;
-use uni::Uni;
-use uni::api::schema::IndexType;
 use uni_common::core::schema::{DataType, InvertedIndexConfig};
+use uni_db::Uni;
+use uni_db::api::schema::IndexType;
 
 #[tokio::test]
 async fn test_vector_match_operator_coverage() -> Result<()> {
@@ -17,9 +17,9 @@ async fn test_vector_match_operator_coverage() -> Result<()> {
         .property("embedding", DataType::Vector { dimensions: 2 })
         .index(
             "embedding",
-            IndexType::Vector(uni::api::schema::VectorIndexCfg {
-                algorithm: uni::api::schema::VectorAlgo::Flat,
-                metric: uni::api::schema::VectorMetric::L2,
+            IndexType::Vector(uni_db::api::schema::VectorIndexCfg {
+                algorithm: uni_db::api::schema::VectorAlgo::Flat,
+                metric: uni_db::api::schema::VectorMetric::L2,
             }),
         )
         .apply()

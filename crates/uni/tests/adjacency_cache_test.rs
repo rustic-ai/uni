@@ -4,11 +4,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::{Eid, Vid};
-use uni::core::schema::SchemaManager;
-use uni::runtime::writer::Writer;
-use uni::storage::adjacency_cache::Direction;
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::{Eid, Vid};
+use uni_db::core::schema::SchemaManager;
+use uni_db::runtime::writer::Writer;
+use uni_db::storage::adjacency_cache::Direction;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_adjacency_cache_lifecycle() -> anyhow::Result<()> {
@@ -31,7 +31,7 @@ async fn test_adjacency_cache_lifecycle() -> anyhow::Result<()> {
     // 2. Insert Base Data (L2) using Writer (which writes L0, then flush)
     // We want to test Cache Warming from L2.
     // Person 0 -> Person 1
-    use uni::UniConfig;
+    use uni_db::UniConfig;
 
     let cache_arc = Some(storage.adjacency_cache());
     let mut writer = Writer::new_with_config(

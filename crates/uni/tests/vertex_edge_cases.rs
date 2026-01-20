@@ -4,9 +4,9 @@
 use serde_json::json;
 use std::collections::HashMap;
 use tempfile::tempdir;
-use uni::core::id::Vid;
-use uni::core::schema::{DataType, SchemaManager};
-use uni::storage::vertex::VertexDataset;
+use uni_db::core::id::Vid;
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::storage::vertex::VertexDataset;
 
 #[tokio::test]
 async fn test_vertex_serialization_nulls() -> anyhow::Result<()> {

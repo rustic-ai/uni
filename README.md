@@ -21,15 +21,15 @@ Part of [The Rustic Initiative](https://www.rustic.ai) by [Dragonscale Industrie
 
 ### Rust
 
-Add `uni` to your `Cargo.toml`:
+Add `uni-db` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-uni = { git = "https://github.com/rustic-ai/uni" }
+uni-db = { git = "https://github.com/rustic-ai/uni" }
 ```
 
 ```rust
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -56,9 +56,9 @@ maturin develop
 ```
 
 ```python
-import uni
+import uni_db
 
-db = uni.Database("my_db")
+db = uni_db.Database("my_db")
 
 # Create
 db.query("CREATE (n:Person {name: 'Bob', age: 25})")

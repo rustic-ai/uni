@@ -8,7 +8,7 @@
 //! database API to Python applications. It includes database management,
 //! query execution, schema management, bulk loading, and vector search.
 
-use ::uni::{Uni, Value};
+use ::uni_db::{Uni, Value};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
@@ -1016,7 +1016,7 @@ impl BulkWriter {
                 let val = py_object_to_value(py, &v)?;
                 map.insert(k, serde_json::Value::from(val));
             }
-            rust_edges.push((::uni::Vid::from(src), ::uni::Vid::from(dst), map));
+            rust_edges.push((::uni_db::Vid::from(src), ::uni_db::Vid::from(dst), map));
         }
 
         self.rt
@@ -1937,7 +1937,7 @@ impl Database {
                 let val = py_object_to_value(py, &v)?;
                 map.insert(k, serde_json::Value::from(val));
             }
-            rust_edges.push((::uni::Vid::from(src), ::uni::Vid::from(dst), map));
+            rust_edges.push((::uni_db::Vid::from(src), ::uni_db::Vid::from(dst), map));
         }
 
         self.rt
@@ -2051,7 +2051,7 @@ impl Database {
 
     /// Create a VID from label_id and offset.
     fn make_vid(&self, label_id: u16, offset: u64) -> u64 {
-        ::uni::Vid::new(label_id, offset).as_u64()
+        ::uni_db::Vid::new(label_id, offset).as_u64()
     }
 
     /// Insert a vertex with a specific UID.
@@ -2063,13 +2063,13 @@ impl Database {
         }
         let mut bytes = [0u8; 32];
         bytes.copy_from_slice(&uid);
-        let uni_id = ::uni::UniId::from_bytes(bytes);
+        let uni_id = ::uni_db::UniId::from_bytes(bytes);
 
         self.rt
             .block_on(async {
                 self.inner
                     .storage()
-                    .insert_vertex_with_uid(label, ::uni::Vid::from(vid), uni_id)
+                    .insert_vertex_with_uid(label, ::uni_db::Vid::from(vid), uni_id)
                     .await
                     .map_err(|e| e.to_string())
             })
@@ -2086,7 +2086,7 @@ impl Database {
         }
         let mut bytes = [0u8; 32];
         bytes.copy_from_slice(&uid);
-        let uni_id = ::uni::UniId::from_bytes(bytes);
+        let uni_id = ::uni_db::UniId::from_bytes(bytes);
 
         let vid = self
             .rt
@@ -2365,7 +2365,7 @@ fn py_object_to_value(py: Python, obj: &PyObject) -> PyResult<Value> {
 
 /// Python module for the Uni embedded graph database.
 #[pymodule]
-fn uni(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn uni_db(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Main classes
     m.add_class::<Database>()?;
     m.add_class::<DatabaseBuilder>()?;

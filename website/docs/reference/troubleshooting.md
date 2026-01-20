@@ -15,7 +15,7 @@ uni schema validate --path ./storage
 uni check --path ./storage
 
 # View recent logs
-RUST_LOG=uni=debug uni query "RETURN 1" --path ./storage 2>&1 | tail -50
+RUST_LOG=uni_db=debug uni query "RETURN 1" --path ./storage 2>&1 | tail -50
 ```
 
 ---
@@ -597,13 +597,13 @@ println!("L0 buffer: {} MB", stats.l0_buffer_mb);
 
 ```bash
 # All Uni logs at debug level
-RUST_LOG=uni=debug uni query "..." --path ./storage
+RUST_LOG=uni_db=debug uni query "..." --path ./storage
 
 # Specific module
-RUST_LOG=uni::storage=trace,uni::query=debug uni query "..."
+RUST_LOG=uni_db::storage=trace,uni_db::query=debug uni query "..."
 
 # Include Lance logs
-RUST_LOG=uni=debug,lance=info uni query "..."
+RUST_LOG=uni_db=debug,lance=info uni query "..."
 ```
 
 ### Query Profiling
@@ -638,7 +638,7 @@ cat ./storage/manifest.json | jq .
 
 ```bash
 # Run with memory tracking
-RUST_LOG=uni=debug UNI_TRACK_MEMORY=1 uni query "..."
+RUST_LOG=uni_db=debug UNI_TRACK_MEMORY=1 uni query "..."
 
 # Use heaptrack (Linux)
 heaptrack uni query "..."

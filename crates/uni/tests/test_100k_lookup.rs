@@ -44,7 +44,7 @@ async fn test_100k_property_lookup() {
     let schema_path = path.join("schema.json");
     tokio::fs::write(&schema_path, SCHEMA_JSON).await.unwrap();
 
-    let db = uni::Uni::open(path.to_str().unwrap())
+    let db = uni_db::Uni::open(path.to_str().unwrap())
         .build()
         .await
         .unwrap();
@@ -151,7 +151,7 @@ async fn test_100k_property_lookup() {
     let has_person_0 = all_names.rows.iter().any(|row| {
         row.values
             .iter()
-            .any(|v| matches!(v, uni::Value::String(s) if s == "Person_0"))
+            .any(|v| matches!(v, uni_db::Value::String(s) if s == "Person_0"))
     });
     eprintln!("Person_0 exists in full scan: {}", has_person_0);
 

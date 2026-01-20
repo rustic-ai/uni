@@ -8,7 +8,7 @@
 //! set membership queries (`ANY IN`) and support incremental updates.
 
 use anyhow::Result;
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::test]
 async fn test_inverted_index() -> Result<()> {

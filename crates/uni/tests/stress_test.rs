@@ -6,10 +6,10 @@ use std::sync::Arc;
 use std::time::Instant;
 use tempfile::tempdir;
 use tokio::sync::RwLock;
-use uni::core::id::{Eid, Vid};
-use uni::core::schema::SchemaManager;
-use uni::runtime::writer::Writer;
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::{Eid, Vid};
+use uni_db::core::schema::SchemaManager;
+use uni_db::runtime::writer::Writer;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_stress_concurrent_read_write() -> anyhow::Result<()> {
@@ -121,7 +121,7 @@ async fn test_stress_concurrent_read_write() -> anyhow::Result<()> {
                             &[vid],
                             &[t_link],
                             1,
-                            uni::runtime::Direction::Outgoing,
+                            uni_db::runtime::Direction::Outgoing,
                             None, // No L0 access for now
                         )
                         .await;

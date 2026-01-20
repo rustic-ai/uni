@@ -5,7 +5,7 @@ Uni provides a comprehensive Rust API for embedding the graph database directly 
 ## Quick Start
 
 ```rust
-use uni::*;
+use uni_db::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -1744,7 +1744,7 @@ pub use crate::vector::VectorMatch;
 ## Complete Example
 
 ```rust
-use uni::*;
+use uni_db::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {

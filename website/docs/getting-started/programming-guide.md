@@ -38,7 +38,7 @@ The first step is opening or creating a database. Uni uses a builder pattern for
 === "Rust"
 
     ```rust
-    use uni::*;
+    use uni_db::*;
 
     #[tokio::main]
     async fn main() -> Result<()> {
@@ -1143,7 +1143,7 @@ Handle errors appropriately in your application.
 === "Rust"
 
     ```rust
-    use uni::*;
+    use uni_db::*;
 
     match db.query("INVALID CYPHER").await {
         Ok(results) => {
@@ -1191,7 +1191,7 @@ Here's a complete example building a simple social network application.
 === "Rust"
 
     ```rust
-    use uni::*;
+    use uni_db::*;
     use std::collections::HashMap;
 
     #[tokio::main]

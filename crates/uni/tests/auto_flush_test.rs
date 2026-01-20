@@ -4,10 +4,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::UniConfig;
-use uni::core::schema::SchemaManager;
-use uni::runtime::writer::Writer;
-use uni::storage::manager::StorageManager;
+use uni_db::UniConfig;
+use uni_db::core::schema::SchemaManager;
+use uni_db::runtime::writer::Writer;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_l0_auto_flush_threshold() -> anyhow::Result<()> {

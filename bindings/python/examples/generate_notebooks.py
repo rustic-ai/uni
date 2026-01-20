@@ -61,7 +61,7 @@ common_setup = [
     "import shutil",
     "import tempfile",
     "",
-    "import uni",
+    "import uni_db",
 ]
 
 
@@ -70,7 +70,7 @@ def db_setup(name):
         f'db_path = os.path.join(tempfile.gettempdir(), "{name}_db")',
         "if os.path.exists(db_path):",
         "    shutil.rmtree(db_path)",
-        "db = uni.Database(db_path)",
+        "db = uni_db.Database(db_path)",
         'print(f"Opened database at {db_path}")',
     ]
 

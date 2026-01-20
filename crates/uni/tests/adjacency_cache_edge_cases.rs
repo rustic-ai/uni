@@ -5,11 +5,11 @@ use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::{Eid, Vid};
-use uni::core::schema::SchemaManager;
-use uni::runtime::l0::L0Buffer;
-use uni::storage::adjacency_cache::{AdjacencyCache, Direction};
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::{Eid, Vid};
+use uni_db::core::schema::SchemaManager;
+use uni_db::runtime::l0::L0Buffer;
+use uni_db::storage::adjacency_cache::{AdjacencyCache, Direction};
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_cache_miss_fallback() -> anyhow::Result<()> {
@@ -30,7 +30,7 @@ async fn test_cache_miss_fallback() -> anyhow::Result<()> {
     let delta = storage.delta_dataset("REL", "fwd")?;
     let schema = schema_manager.schema();
 
-    use uni::storage::delta::{L1Entry, Op};
+    use uni_db::storage::delta::{L1Entry, Op};
     let op = L1Entry {
         src_vid: Vid::new(1, 0),
         dst_vid: Vid::new(1, 1),

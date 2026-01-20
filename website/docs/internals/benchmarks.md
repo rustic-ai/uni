@@ -530,7 +530,7 @@ open target/criterion/report/index.html
 
 ```rust
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
-use uni::*;
+use uni_db::*;
 
 fn benchmark_traversal(c: &mut Criterion) {
     let storage = setup_test_storage();

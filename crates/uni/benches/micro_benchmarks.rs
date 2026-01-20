@@ -11,11 +11,11 @@ use lance::dataset::WriteMode;
 use std::sync::Arc;
 use tempfile::tempdir;
 use tokio::runtime::Runtime;
-use uni::core::id::{Eid, Vid};
-use uni::core::schema::{DataType, SchemaManager};
-use uni::runtime::Direction as SimpleDirection;
-use uni::storage::manager::StorageManager;
 use uni_common::graph::simple_graph::SimpleGraph;
+use uni_db::core::id::{Eid, Vid};
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::runtime::Direction as SimpleDirection;
+use uni_db::storage::manager::StorageManager;
 
 fn bench_vector_search(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();

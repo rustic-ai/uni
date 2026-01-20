@@ -4,8 +4,9 @@
 """Tests for Vector Search API."""
 
 import tempfile
+
 import pytest
-import uni
+import uni_db
 
 
 class TestVectorSearch:
@@ -15,16 +16,22 @@ class TestVectorSearch:
     def db(self):
         """Create a database with vector-indexed documents."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Document")
             db.add_property("Document", "title", "string", False)
             db.add_property("Document", "embedding", "vector:3", False)
             db.create_vector_index("Document", "embedding", "l2")
 
             # Insert test documents with embeddings
-            db.execute("CREATE (d:Document {title: 'Doc1', embedding: [1.0, 0.0, 0.0]})")
-            db.execute("CREATE (d:Document {title: 'Doc2', embedding: [0.0, 1.0, 0.0]})")
-            db.execute("CREATE (d:Document {title: 'Doc3', embedding: [0.0, 0.0, 1.0]})")
+            db.execute(
+                "CREATE (d:Document {title: 'Doc1', embedding: [1.0, 0.0, 0.0]})"
+            )
+            db.execute(
+                "CREATE (d:Document {title: 'Doc2', embedding: [0.0, 1.0, 0.0]})"
+            )
+            db.execute(
+                "CREATE (d:Document {title: 'Doc3', embedding: [0.0, 0.0, 1.0]})"
+            )
             db.execute(
                 "CREATE (d:Document {title: 'Doc4', embedding: [0.5, 0.5, 0.0]})"
             )
@@ -80,7 +87,7 @@ class TestVectorMatch:
     def test_vector_match_attributes(self):
         """Test VectorMatch has expected attributes."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Doc")
             db.add_property("Doc", "vec", "vector:2", False)
             db.create_vector_index("Doc", "vec", "l2")

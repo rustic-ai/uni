@@ -70,10 +70,10 @@ No complex distributed consensus. One writer, multiple readers, snapshot isolati
 ### Quick Example
 
 ```rust
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::main]
-async fn main() -> Result<(), uni::UniError> {
+async fn main() -> Result<(), uni_db::UniError> {
     let db = Uni::open("./my-graph").build().await?;
     let results = db.query("
         MATCH (user:User)-[:PURCHASED]->(product:Product)

@@ -6,13 +6,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
 use tokio::sync::RwLock;
-use uni::core::schema::{DataType, SchemaManager};
-use uni::query::executor::Executor;
-use uni::query::parser::CypherParser;
-use uni::query::planner::QueryPlanner;
-use uni::runtime::property_manager::PropertyManager;
-use uni::runtime::writer::Writer;
-use uni::storage::manager::StorageManager;
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::query::executor::Executor;
+use uni_db::query::parser::CypherParser;
+use uni_db::query::planner::QueryPlanner;
+use uni_db::runtime::property_manager::PropertyManager;
+use uni_db::runtime::writer::Writer;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_edge_export_failure() -> anyhow::Result<()> {
@@ -51,18 +51,18 @@ async fn test_edge_export_failure() -> anyhow::Result<()> {
     {
         let mut w = writer.write().await;
         // Alice (1:0), Bob (1:1)
-        w.insert_vertex(uni::common::core::id::Vid::new(1, 0), HashMap::new())
+        w.insert_vertex(uni_db::common::core::id::Vid::new(1, 0), HashMap::new())
             .await?;
-        w.insert_vertex(uni::common::core::id::Vid::new(1, 1), HashMap::new())
+        w.insert_vertex(uni_db::common::core::id::Vid::new(1, 1), HashMap::new())
             .await?;
 
         // Edge Alice -> Bob
-        let eid = uni::common::core::id::Eid::new(1, 0); // Type 1 (KNOWS)
+        let eid = uni_db::common::core::id::Eid::new(1, 0); // Type 1 (KNOWS)
         let mut props = HashMap::new();
         props.insert("since".to_string(), json!(2022));
         w.insert_edge(
-            uni::common::core::id::Vid::new(1, 0),
-            uni::common::core::id::Vid::new(1, 1),
+            uni_db::common::core::id::Vid::new(1, 0),
+            uni_db::common::core::id::Vid::new(1, 1),
             1,
             eid,
             props,

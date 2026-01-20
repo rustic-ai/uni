@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use tempfile::tempdir;
-use uni::{Uni, Value};
+use uni_db::{Uni, Value};
 
 #[tokio::test]
 async fn test_vectorized_create() -> Result<()> {

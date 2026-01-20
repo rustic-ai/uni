@@ -7,13 +7,13 @@ use lance::dataset::WriteMode;
 use serde_json::Value;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::{Eid, Vid};
-use uni::core::schema::{DataType, SchemaManager};
-use uni::query::executor::Executor;
-use uni::query::parser::CypherParser;
-use uni::query::planner::QueryPlanner;
-use uni::runtime::property_manager::PropertyManager;
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::{Eid, Vid};
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::query::executor::Executor;
+use uni_db::query::parser::CypherParser;
+use uni_db::query::planner::QueryPlanner;
+use uni_db::runtime::property_manager::PropertyManager;
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_cypher_var_length() -> anyhow::Result<()> {

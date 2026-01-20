@@ -3,7 +3,7 @@
 
 use serde_json::json;
 use std::collections::HashMap;
-use uni::{DataType, IndexType, ScalarType, Uni, VectorAlgo, VectorIndexCfg, VectorMetric};
+use uni_db::{DataType, IndexType, ScalarType, Uni, VectorAlgo, VectorIndexCfg, VectorMetric};
 
 fn cleanup_db(path: &str) {
     if std::path::Path::new(path).exists() {

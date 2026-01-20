@@ -436,7 +436,7 @@ Uni supports cloud storage backends for bulk data storage while keeping metadata
 Hybrid mode stores bulk data in cloud storage while keeping WAL and metadata local:
 
 ```rust
-use uni::Uni;
+use uni_db::Uni;
 
 let db = Uni::open("./local_meta")
     .hybrid("./local_meta", "s3://my-bucket/graph-data")
@@ -452,7 +452,7 @@ let db = Uni::open("./local_meta")
 ### S3 Configuration
 
 ```rust
-use uni::Uni;
+use uni_db::Uni;
 use uni_common::CloudStorageConfig;
 
 // Using environment variables (recommended)
@@ -549,7 +549,7 @@ export UNI_WAL_SYNC_INTERVAL_MS=50
 export UNI_ADJACENCY_CACHE_SIZE=5000000
 export UNI_WORKER_THREADS=16
 export UNI_MAX_MEMORY_MB=8192
-export RUST_LOG=uni=info,lance=warn
+export RUST_LOG=uni_db=info,lance=warn
 ```
 
 ---

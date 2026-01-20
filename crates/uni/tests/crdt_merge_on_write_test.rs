@@ -3,11 +3,11 @@
 
 use std::collections::HashMap;
 use tempfile::tempdir;
-use uni::Uni;
-use uni::core::id::Vid;
-use uni::core::schema::{CrdtType, DataType};
-use uni::runtime::property_manager::PropertyManager;
 use uni_crdt::{Crdt, GCounter};
+use uni_db::Uni;
+use uni_db::core::id::Vid;
+use uni_db::core::schema::{CrdtType, DataType};
+use uni_db::runtime::property_manager::PropertyManager;
 
 #[tokio::test]
 async fn test_crdt_merge_on_write() -> anyhow::Result<()> {

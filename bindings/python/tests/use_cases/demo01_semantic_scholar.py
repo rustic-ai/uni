@@ -9,7 +9,7 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 
-import uni
+import uni_db
 
 
 class TestDemo01SemanticScholar(unittest.TestCase):
@@ -17,7 +17,7 @@ class TestDemo01SemanticScholar(unittest.TestCase):
         self.test_dir = "./test_db_demo01"
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
-        self.db = uni.Database(self.test_dir)
+        self.db = uni_db.Database(self.test_dir)
         self.setup_schema()
         self.generate_data()
 

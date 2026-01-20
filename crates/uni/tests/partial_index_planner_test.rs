@@ -7,7 +7,7 @@
 //! partial indexes when the query's WHERE clause subsumes the index's WHERE clause.
 
 use anyhow::Result;
-use uni::Uni;
+use uni_db::Uni;
 
 /// Test that a partial index is recognized when query predicates exactly match.
 #[tokio::test]

@@ -299,7 +299,7 @@ impl FileSandboxConfig {
     ///
     /// ```ignore
     /// if let Some(warning) = config.file_sandbox.security_warning() {
-    ///     tracing::warn!(target: "uni::security", "{}", warning);
+    ///     tracing::warn!(target: "uni_db::security", "{}", warning);
     /// }
     /// ```
     pub fn security_warning(&self) -> Option<&'static str> {

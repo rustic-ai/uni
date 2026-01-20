@@ -4,8 +4,9 @@
 """Tests for Session API."""
 
 import tempfile
+
 import pytest
-import uni
+import uni_db
 
 
 class TestSessionBuilder:
@@ -15,7 +16,7 @@ class TestSessionBuilder:
     def db(self):
         """Create a database with test data."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Person")
             db.add_property("Person", "name", "string", False)
             db.add_property("Person", "age", "int", False)
@@ -47,7 +48,9 @@ class TestSessionBuilder:
         assert affected >= 0
 
         # Verify the node was created
-        results = session.query("MATCH (n:Person {name: 'Charlie'}) RETURN n.age AS age")
+        results = session.query(
+            "MATCH (n:Person {name: 'Charlie'}) RETURN n.age AS age"
+        )
         assert len(results) == 1
         assert results[0]["age"] == 35
 

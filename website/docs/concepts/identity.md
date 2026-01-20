@@ -61,7 +61,7 @@ The Vertex ID is a 64-bit packed integer optimized for O(1) array indexing.
 ### Usage in Code
 
 ```rust
-use uni::core::Vid;
+use uni_db::core::Vid;
 
 // Create a VID
 let vid = Vid::new(1, 42);  // label_id=1 (Paper), offset=42
@@ -116,7 +116,7 @@ Edge IDs follow the same packed 64-bit structure as VIDs.
 ### Usage
 
 ```rust
-use uni::core::Eid;
+use uni_db::core::Eid;
 
 let eid = Eid::new(2, 21);  // type_id=2 (CITES), offset=21
 
@@ -162,7 +162,7 @@ The UniId is a content-addressed identifier for distributed systems and provenan
 UniId is computed from vertex content:
 
 ```rust
-use uni::core::UniId;
+use uni_db::core::UniId;
 use sha3::{Sha3_256, Digest};
 
 // Content to hash

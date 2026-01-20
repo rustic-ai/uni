@@ -3,7 +3,7 @@
 
 use serde_json::json;
 use std::collections::HashMap;
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::test]
 async fn test_recommendation_use_case() -> anyhow::Result<()> {

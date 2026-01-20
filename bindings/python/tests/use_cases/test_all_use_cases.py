@@ -8,7 +8,7 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 
-import uni
+import uni_db
 
 
 class TestUseCases(unittest.TestCase):
@@ -20,7 +20,7 @@ class TestUseCases(unittest.TestCase):
 
     def get_db(self, name):
         path = os.path.join(self.test_dir_base, name)
-        return uni.Database(path)
+        return uni_db.Database(path)
 
     def test_supply_chain(self):
         db = self.get_db("supply_chain")

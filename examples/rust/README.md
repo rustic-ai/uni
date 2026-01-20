@@ -65,11 +65,11 @@ Each notebook demonstrates the core Uni Rust API:
 
 ```rust
 // Load dependencies (evcxr special syntax)
-:dep uni = { path = "../../../crates/uni" }
+:dep uni-db = { path = "../../../crates/uni" }
 :dep tokio = { version = "1", features = ["full"] }
 
 // Imports
-use uni::{Uni, DataType};
+use uni_db::{Uni, DataType};
 
 // Async helper macro
 macro_rules! run {
@@ -120,7 +120,7 @@ The first cell in each notebook compiles the dependencies, which takes time. Sub
 | Feature | Python | Rust |
 |---------|--------|------|
 | Async handling | Automatic (PyO3 handles it) | Manual with `tokio::runtime::block_on` |
-| Dependencies | `import uni` | `:dep uni = { path = "..." }` |
+| Dependencies | `import uni` | `:dep uni-db = { path = "..." }` |
 | Schema API | `db.create_label()` | `db.schema().label().apply()` |
 | Error handling | Exceptions | `Result<T, E>` with `.unwrap()` |
 

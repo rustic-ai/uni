@@ -2,7 +2,7 @@
 // Copyright 2024-2026 Dragonscale Team
 
 use anyhow::Result;
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::test]
 async fn test_composite_index_creation() -> Result<()> {
@@ -22,7 +22,7 @@ async fn test_composite_index_creation() -> Result<()> {
         .indexes
         .iter()
         .find(|idx| {
-            if let uni::core::schema::IndexDefinition::Scalar(config) = idx {
+            if let uni_db::core::schema::IndexDefinition::Scalar(config) = idx {
                 config.name == "idx_name"
             } else {
                 false
@@ -30,7 +30,7 @@ async fn test_composite_index_creation() -> Result<()> {
         })
         .expect("Index not found");
 
-    if let uni::core::schema::IndexDefinition::Scalar(config) = index {
+    if let uni_db::core::schema::IndexDefinition::Scalar(config) = index {
         assert_eq!(
             config.properties,
             vec!["lastName".to_string(), "firstName".to_string()]
@@ -60,7 +60,7 @@ async fn test_composite_index_creation() -> Result<()> {
         .indexes
         .iter()
         .find(|idx| {
-            if let uni::core::schema::IndexDefinition::Scalar(config) = idx {
+            if let uni_db::core::schema::IndexDefinition::Scalar(config) = idx {
                 config.name == "idx_active"
             } else {
                 false
@@ -68,7 +68,7 @@ async fn test_composite_index_creation() -> Result<()> {
         })
         .expect("Partial index not found");
 
-    if let uni::core::schema::IndexDefinition::Scalar(config) = partial_idx {
+    if let uni_db::core::schema::IndexDefinition::Scalar(config) = partial_idx {
         assert_eq!(config.properties, vec!["email".to_string()]);
         assert!(config.where_clause.is_some());
         assert!(config.where_clause.as_ref().unwrap().contains("active"));

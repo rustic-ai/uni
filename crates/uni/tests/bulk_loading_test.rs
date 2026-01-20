@@ -6,8 +6,8 @@
 use anyhow::Result;
 use serde_json::json;
 use std::collections::HashMap;
-use uni::Uni;
-use uni::api::bulk::EdgeData;
+use uni_db::Uni;
+use uni_db::api::bulk::EdgeData;
 
 const SCHEMA_JSON: &str = r#"{
     "schema_version": 1,

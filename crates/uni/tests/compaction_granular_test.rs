@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024-2026 Dragonscale Team
 
-use uni::Uni;
-use uni::core::schema::{DataType, SchemaManager};
+use uni_db::Uni;
+use uni_db::core::schema::{DataType, SchemaManager};
 
 #[tokio::test]
 async fn test_granular_compaction_public_api() -> anyhow::Result<()> {

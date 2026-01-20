@@ -4,9 +4,9 @@
 use serde_json::json;
 use std::sync::Arc;
 use tempfile::tempdir;
-use uni::core::id::Vid;
-use uni::core::schema::{DataType, SchemaManager};
-use uni::storage::manager::StorageManager;
+use uni_db::core::id::Vid;
+use uni_db::core::schema::{DataType, SchemaManager};
+use uni_db::storage::manager::StorageManager;
 
 #[tokio::test]
 async fn test_document_storage() -> anyhow::Result<()> {

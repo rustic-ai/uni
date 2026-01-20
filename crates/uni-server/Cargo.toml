@@ -6,9 +6,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+publish = false
 
 [dependencies]
-uni = { workspace = true }
+uni-db = { workspace = true }
 uni-common = { workspace = true }
 tokio = { workspace = true }
 axum = { workspace = true }

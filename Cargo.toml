@@ -30,7 +30,7 @@ uni-algo = { path = "crates/uni-algo" }
 uni-query = { path = "crates/uni-query" }
 uni-server = { path = "crates/uni-server" }
 uni-cli = { path = "crates/uni-cli" }
-uni = { path = "crates/uni" }
+uni-db = { path = "crates/uni" }
 uni-crdt = { path = "crates/uni-crdt" }
 
 serde = { version = "1.0", features = ["derive"] }

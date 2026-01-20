@@ -17,15 +17,15 @@ use uni_common::{Result, UniError};
 /// # Example
 ///
 /// ```no_run
-/// # async fn example(db: &uni::Uni) -> uni::Result<()> {
+/// # async fn example(db: &uni_db::Uni) -> uni_db::Result<()> {
 /// db.schema()
 ///     .label("Person")
-///         .property("name", uni::DataType::String)
-///         .property("age", uni::DataType::Int64)
+///         .property("name", uni_db::DataType::String)
+///         .property("age", uni_db::DataType::Int64)
 ///         .vector("embedding", 1536) // Adds property AND vector index
-///         .index("name", uni::IndexType::Scalar(uni::ScalarType::BTree))
+///         .index("name", uni_db::IndexType::Scalar(uni_db::ScalarType::BTree))
 ///     .edge_type("KNOWS", &["Person"], &["Person"])
-///         .property("since", uni::DataType::Date)
+///         .property("since", uni_db::DataType::Date)
 ///     .apply()
 ///     .await?;
 /// # Ok(())

@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use std::sync::Arc;
-use uni::{DataType, Uni, UniError};
+use uni_db::{DataType, Uni, UniError};
 
 #[tokio::test]
 async fn test_complex_cypher() -> Result<()> {

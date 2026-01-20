@@ -4,8 +4,9 @@
 """Tests for SchemaBuilder API."""
 
 import tempfile
+
 import pytest
-import uni
+import uni_db
 
 
 class TestSchemaBuilder:
@@ -15,7 +16,7 @@ class TestSchemaBuilder:
     def db(self):
         """Create a temporary database."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            yield uni.DatabaseBuilder.open(tmpdir).build()
+            yield uni_db.DatabaseBuilder.open(tmpdir).build()
 
     def test_label_builder_basic(self, db):
         """Test creating a label with basic properties."""
@@ -65,9 +66,11 @@ class TestSchemaBuilder:
         schema = db.schema()
         schema = schema.label("Person").property("name", "string").done()
         schema = schema.label("Company").property("name", "string").done()
-        schema = schema.edge_type("WORKS_AT", ["Person"], ["Company"]).property(
-            "role", "string"
-        ).done()
+        schema = (
+            schema.edge_type("WORKS_AT", ["Person"], ["Company"])
+            .property("role", "string")
+            .done()
+        )
         schema.apply()
 
         assert db.label_exists("Person")
@@ -82,7 +85,7 @@ class TestSchemaQueries:
     def db_with_schema(self):
         """Create a database with a predefined schema."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            db = uni.DatabaseBuilder.open(tmpdir).build()
+            db = uni_db.DatabaseBuilder.open(tmpdir).build()
             db.create_label("Person")
             db.add_property("Person", "name", "string", False)
             db.add_property("Person", "age", "int", False)
@@ -128,7 +131,7 @@ class TestDataTypes:
     def db(self):
         """Create a temporary database."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            yield uni.DatabaseBuilder.open(tmpdir).build()
+            yield uni_db.DatabaseBuilder.open(tmpdir).build()
 
     def test_string_type(self, db):
         """Test string data type."""
