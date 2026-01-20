@@ -5,10 +5,10 @@
 ## Quick Start
 
 ```rust
-use uni::Uni;
+use uni_db::Uni;
 
 #[tokio::main]
-async fn main() -> uni::Result<()> {
+async fn main() -> uni_db::Result<()> {
     // Create in-memory database
     let db = Uni::in_memory().build().await?;
 
@@ -41,7 +41,7 @@ async fn main() -> uni::Result<()> {
 
 ```toml
 [dependencies]
-uni = "0.1"
+uni-db = "0.1"
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -93,7 +93,7 @@ let db = Uni::open("./my_graph")
 ### Cloud Storage Configuration
 
 ```rust
-use uni::CloudStorageConfig;
+use uni_db::CloudStorageConfig;
 
 // S3 from environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, etc.)
 let config = CloudStorageConfig::s3_from_env("my-bucket");
@@ -138,7 +138,7 @@ let db = Uni::open(&config.to_url())
 ### Synchronous API
 
 ```rust
-use uni::UniSync;
+use uni_db::UniSync;
 
 let db = UniSync::in_memory()?;
 db.execute("CREATE (:Person {name: 'Alice'})")?;
@@ -152,7 +152,7 @@ let results = db.query("MATCH (n:Person) RETURN n.name")?;
 ### Data Types
 
 ```rust
-use uni::DataType;
+use uni_db::DataType;
 
 DataType::String
 DataType::Int32
@@ -211,7 +211,7 @@ db.schema()
 ### Index Types
 
 ```rust
-use uni::{IndexType, VectorIndexCfg, VectorAlgo, VectorMetric, ScalarType};
+use uni_db::{IndexType, VectorIndexCfg, VectorAlgo, VectorMetric, ScalarType};
 
 // Vector indexes
 IndexType::Vector(VectorIndexCfg {
@@ -741,7 +741,7 @@ db.backup("./backup_path").await?;
 ## Configuration
 
 ```rust
-use uni::{UniConfig, CompactionConfig, WriteThrottleConfig, ObjectStoreConfig};
+use uni_db::{UniConfig, CompactionConfig, WriteThrottleConfig, ObjectStoreConfig};
 use std::time::Duration;
 
 let config = UniConfig {
@@ -788,7 +788,7 @@ let db = Uni::open("./my_graph")
 ### Server Mode Configuration
 
 ```rust
-use uni::{ServerConfig, FileSandboxConfig, DeploymentMode};
+use uni_db::{ServerConfig, FileSandboxConfig, DeploymentMode};
 
 // Development server (permissive - NOT for production)
 let server_config = ServerConfig::development();
@@ -811,7 +811,7 @@ let sandbox = FileSandboxConfig::sandboxed(vec![
 ## Error Handling
 
 ```rust
-use uni::{Result, UniError};
+use uni_db::{Result, UniError};
 
 match db.query("MATCH (n:Person) RETURN n").await {
     Ok(results) => { /* process results */ }
@@ -1043,16 +1043,16 @@ let results = db.query("
 Uni provides Python bindings via PyO3 for use in Python applications and Jupyter notebooks.
 
 ```python
-import uni
+import uni_db
 
 # Create in-memory database
-db = uni.Database.in_memory()
+db = uni_db.Database.in_memory()
 
 # Define schema
 db.schema() \
     .label("Person") \
-    .property("name", uni.DataType.String) \
-    .property("age", uni.DataType.Int32) \
+    .property("name", uni_db.DataType.String) \
+    .property("age", uni_db.DataType.Int32) \
     .done() \
     .edge_type("KNOWS", ["Person"], ["Person"]) \
     .apply()
