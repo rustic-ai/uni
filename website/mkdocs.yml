@@ -29,6 +29,12 @@ nav:
       - Data Ingestion: guides/data-ingestion.md
       - Schema Design: guides/schema-design.md
       - Performance Tuning: guides/performance-tuning.md
+  - Use Cases:
+      - Overview: use-cases/index.md
+      - RAG & Knowledge Graphs: use-cases/rag-knowledge-graph.md
+      - Fraud Detection: use-cases/fraud-detection.md
+      - Recommendation Engines: use-cases/recommendation-engine.md
+      - Supply Chain & BOM: use-cases/supply-chain.md
   - Examples:
       - Overview: examples/index.md
       - Python:
@@ -48,6 +54,7 @@ nav:
       - Vectorized Execution: internals/vectorized-execution.md
       - Storage Engine: internals/storage-engine.md
       - Query Planning: internals/query-planning.md
+      - Mutation Spec: internals/mutation_spec.md
       - API Gap Plan: internals/api-gap-plan.md
       - Benchmarks: internals/benchmarks.md
   - Reference:
@@ -56,7 +63,6 @@ nav:
       - Python API: reference/python-api.md
       - REST API: reference/rest-api.md
       - Configuration: reference/configuration.md
-      - Feature Comparison: reference/feature-comparison.md
       - Troubleshooting: reference/troubleshooting.md
       - Limitations: reference/limitations.md
       - Glossary: reference/glossary.md
