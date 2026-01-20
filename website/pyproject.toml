@@ -14,7 +14,7 @@ mkdocs = "^1.6"
 mkdocs-material = "^9.5"
 pymdown-extensions = "^10.0"
 mkdocs-jupyter = "^0.25"
-uni = { path = "../bindings/python", develop = true }
+uni-db = { path = "../bindings/python", develop = true }
 
 [build-system]
 requires = ["poetry-core"]

@@ -1979,7 +1979,7 @@ files = [
 ]
 
 [[package]]
-name = "uni"
+name = "uni-db"
 version = "0.1.0"
 description = "Python bindings for Uni Graph Database"
 optional = false
@@ -1989,7 +1989,7 @@ files = []
 develop = true
 
 [package.extras]
-dev = ["black (>=23.0.0)", "mypy (>=1.0.0)", "ruff (>=0.1.0)"]
+dev = ["black (>=23.0.0)", "mypy (>=1.0.0)", "pytest (>=7.0.0)", "ruff (>=0.1.0)"]
 docs = ["pdoc (>=14.0.0)"]
 
 [package.source]
@@ -2084,4 +2084,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "c4adcb94539cf225486d5e94690d79b1d27924086e0c416f6c3968d876cb431b"
+content-hash = "02b2fb9c5cda1a1862f58a38f82bb59f5e82b282e27b3462e1c8c6aa669e7449"
