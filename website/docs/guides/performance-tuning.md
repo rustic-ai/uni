@@ -211,16 +211,61 @@ uni import data --batch-size 5000 ...
 Tune the in-memory write buffer:
 
 ```rust
-let config = WriteConfig {
-    max_mutations_before_flush: 10000,  // Flush threshold
-    max_l0_size_bytes: 128 * 1024 * 1024,  // 128 MB max
-    auto_flush: true,
+use std::time::Duration;
+
+let config = UniConfig {
+    // Mutation-based flush (high-transaction systems)
+    auto_flush_threshold: 10_000,  // Flush at 10K mutations
+
+    // Time-based flush (low-transaction systems)
+    auto_flush_interval: Some(Duration::from_secs(5)),  // Flush every 5s
+    auto_flush_min_mutations: 1,  // If at least 1 mutation pending
+
+    ..Default::default()
 };
 ```
 
 **Trade-offs:**
-- Larger L0: Better write throughput, higher memory, longer recovery
-- Smaller L0: Lower memory, more frequent flushes, faster recovery
+- Larger threshold: Better write throughput, higher memory, longer recovery
+- Smaller threshold: Lower memory, more frequent flushes, faster recovery
+- Shorter interval: Lower data-at-risk, more I/O overhead
+- Longer interval: Less I/O overhead, more data-at-risk on crash
+
+### Auto-Flush Tuning
+
+Choose flush strategy based on workload:
+
+| Workload | Recommended Settings | Rationale |
+|----------|---------------------|-----------|
+| High-transaction OLTP | `threshold: 10_000`, `interval: None` | Mutation count drives flush |
+| Low-transaction | `threshold: 10_000`, `interval: 5s` | Time ensures eventual flush |
+| Critical data | `threshold: 1_000`, `interval: 1s` | Minimize data at risk |
+| Cost-sensitive cloud | `threshold: 50_000`, `interval: 30s` | Reduce API calls |
+| Batch import | `threshold: 100_000`, `interval: None` | Maximum throughput |
+
+```rust
+// High-transaction system (default)
+let config = UniConfig {
+    auto_flush_threshold: 10_000,
+    auto_flush_interval: Some(Duration::from_secs(5)),
+    ..Default::default()
+};
+
+// Cost-sensitive cloud workload
+let config = UniConfig {
+    auto_flush_threshold: 50_000,
+    auto_flush_interval: Some(Duration::from_secs(30)),
+    auto_flush_min_mutations: 100,  // Batch up small writes
+    ..Default::default()
+};
+
+// Critical data, minimize loss
+let config = UniConfig {
+    auto_flush_threshold: 1_000,
+    auto_flush_interval: Some(Duration::from_secs(1)),
+    ..Default::default()
+};
+```
 
 ### Compaction
 
@@ -429,35 +474,92 @@ println!("L0 buffer: {} MB", stats.l0_buffer_mb);
 
 ## I/O Optimization
 
-### Object Store Configuration
+### Cloud Storage Configuration
 
-For S3/GCS backends:
+Uni supports multiple cloud storage backends with automatic credential resolution:
 
 ```rust
-let storage = StorageManager::new_with_object_store(
-    "s3://bucket/path",
-    schema_manager,
-    ObjectStoreConfig {
-        max_connections: 32,
-        connect_timeout: Duration::from_secs(10),
-        read_timeout: Duration::from_secs(30),
-        retry_attempts: 3,
-    }
-);
+use uni_common::CloudStorageConfig;
+
+// Amazon S3
+let db = Uni::open("./local-cache")
+    .cloud_storage(CloudStorageConfig {
+        url: "s3://my-bucket/graph-data".to_string(),
+        region: Some("us-east-1".to_string()),
+        endpoint: None,  // Use default AWS endpoint
+        ..Default::default()
+    })
+    .build()
+    .await?;
+
+// Google Cloud Storage
+let db = Uni::open("./local-cache")
+    .cloud_storage(CloudStorageConfig {
+        url: "gs://my-bucket/graph-data".to_string(),
+        ..Default::default()
+    })
+    .build()
+    .await?;
+
+// S3-compatible (MinIO, LocalStack)
+let db = Uni::open("./local-cache")
+    .cloud_storage(CloudStorageConfig {
+        url: "s3://my-bucket/graph-data".to_string(),
+        endpoint: Some("http://localhost:9000".to_string()),
+        ..Default::default()
+    })
+    .build()
+    .await?;
 ```
 
-### Local Cache for Remote Storage
+### Hybrid Mode for Optimal Performance
+
+Use hybrid mode (local + cloud) for best write latency with cloud durability:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    HYBRID MODE PERFORMANCE                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   Operation          Local-Only    Cloud-Only    Hybrid Mode               │
+│   ─────────────────────────────────────────────────────────────────────────│
+│   Single write       ~50µs         ~100ms        ~50µs (local L0)          │
+│   Batch 1K writes    ~550µs        ~150ms        ~550µs (local L0)         │
+│   Point read (cold)  ~3ms          ~100ms        ~100ms (first access)     │
+│   Point read (warm)  ~3ms          ~3ms          ~3ms (cached)             │
+│   Durability         Local disk    Cloud         Cloud (after flush)       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Best Practice:** Use hybrid mode when:
+- Write latency matters (< 1ms)
+- Data must ultimately reside in cloud storage
+- You have local SSD for the write cache
+
+### Auto-Flush Tuning for Cloud
+
+Optimize flush interval for cloud cost vs. durability:
+
+| Cloud Provider | Recommended Interval | Rationale |
+|----------------|---------------------|-----------|
+| S3 | 5-30s | Balance PUT request costs |
+| GCS | 5-30s | Similar to S3 |
+| Azure Blob | 5-30s | Similar to S3 |
+| Local SSD | 1-5s | No cost concern, minimize data at risk |
 
 ```rust
-let storage = StorageManager::new_with_cache(
-    "s3://bucket/path",
-    schema_manager,
-    CacheConfig {
-        local_cache_path: "/tmp/uni-cache",
-        max_cache_size_bytes: 10 * 1024 * 1024 * 1024,  // 10 GB
-        eviction_policy: EvictionPolicy::LRU,
-    }
-);
+// Cost-optimized for cloud (fewer API calls)
+let db = Uni::open("./local-cache")
+    .cloud_storage(CloudStorageConfig {
+        url: "s3://my-bucket/data".to_string(),
+        ..Default::default()
+    })
+    .auto_flush_threshold(50_000)
+    .auto_flush_interval(Duration::from_secs(30))
+    .auto_flush_min_mutations(100)
+    .build()
+    .await?;
 ```
 
 ### Read-Ahead

@@ -9,28 +9,25 @@ flowchart TB
     Writes["Writes"]
 
     subgraph L0["L0: Memory"]
-        gryf["gryf<br/>(graph)"]
+        SG["SimpleGraph<br/>(graph)"]
         WAL["WAL<br/>(log)"]
-        PropBuf["Property Buffer<br/>(columnar)"]
+        PropBuf["Property Maps<br/>(HashMap)"]
     end
 
-    subgraph L1["L1: Sorted Runs"]
-        Run1["Run 1<br/>(Lance)"]
-        Run2["Run 2<br/>(Lance)"]
-        Run3["Run 3<br/>(Lance)"]
-        Run4["Run 4<br/>(Lance)"]
+    subgraph Delta["Delta Layer"]
+        DeltaDS["DeltaDataset<br/>(Lance)"]
     end
 
-    subgraph L2["L2: Base Layer"]
+    subgraph Base["Base Layer"]
         Compacted["Compacted Lance Dataset<br/>• Full indexes (Vector, Scalar)<br/>• Optimized row groups<br/>• Statistics per column"]
     end
 
-    Reads["Reads → Merge View:<br/>L0 ∪ L1 ∪ L2<br/>(VID-based deduplication)"]
+    Reads["Reads → Merge View:<br/>L0 ∪ Delta ∪ Base<br/>(VID-based deduplication)"]
 
     Writes --> L0
-    L0 -->|flush| L1
-    L1 -->|compact| L2
-    L2 --> Reads
+    L0 -->|flush| Delta
+    Delta -->|compact| Base
+    Base --> Reads
 ```
 
 ---
@@ -43,31 +40,41 @@ The L0 layer handles all incoming writes with maximum throughput.
 
 ```rust
 pub struct L0Buffer {
-    /// In-memory graph structure (vertices + edges)
-    graph: gryf::Graph<VertexData, EdgeData>,
+    /// In-memory graph structure (SimpleGraph)
+    pub graph: SimpleGraph,
 
-    /// Property storage (columnar)
-    properties: HashMap<LabelId, ArrowPropertyBuffer>,
+    /// Edge tombstones with version tracking
+    pub tombstones: HashMap<Eid, TombstoneEntry>,
 
-    /// Write-ahead log reference
-    wal: Arc<Wal>,
+    /// Vertex tombstones
+    pub vertex_tombstones: HashSet<Vid>,
+
+    /// Edge version tracking
+    pub edge_versions: HashMap<Eid, u64>,
+
+    /// Vertex version tracking
+    pub vertex_versions: HashMap<Vid, u64>,
+
+    /// Edge properties (separate from graph structure)
+    pub edge_properties: HashMap<Eid, Properties>,
+
+    /// Vertex properties (separate from graph structure)
+    pub vertex_properties: HashMap<Vid, Properties>,
+
+    /// Edge endpoint mapping (eid -> (src, dst, type_id))
+    pub edge_endpoints: HashMap<Eid, (Vid, Vid, u16)>,
+
+    /// Current version number
+    pub current_version: u64,
 
     /// Mutation counter for flush triggering
-    mutation_count: AtomicUsize,
+    pub mutation_count: usize,
 
-    /// Size estimate in bytes
-    estimated_size: AtomicUsize,
-}
+    /// Write-ahead log reference
+    pub wal: Option<Arc<WriteAheadLog>>,
 
-pub struct ArrowPropertyBuffer {
-    /// Schema for this label's properties
-    schema: Arc<Schema>,
-
-    /// Column builders (one per property)
-    builders: Vec<Box<dyn ArrayBuilder>>,
-
-    /// VID to row index mapping
-    vid_to_row: HashMap<Vid, usize>,
+    /// WAL LSN at last flush
+    pub wal_lsn_at_flush: u64,
 }
 ```
 
@@ -75,7 +82,7 @@ pub struct ArrowPropertyBuffer {
 
 | Property | Value | Notes |
 |----------|-------|-------|
-| Format | gryf + Arrow builders | Row-oriented for inserts |
+| Format | SimpleGraph + HashMap | Row-oriented for inserts |
 | Durability | WAL-backed | Survives crashes |
 | Latency | ~550µs per 1K writes | Memory-speed |
 | Capacity | Configurable (default 128MB) | Auto-flush when full |
@@ -85,40 +92,104 @@ pub struct ArrowPropertyBuffer {
 ```
 1. Acquire write lock (single-writer)
 2. Append to WAL (sync or async based on config)
-3. Insert into gryf graph (vertex/edge)
-4. Append properties to Arrow builders
+3. Insert into SimpleGraph (vertex/edge)
+4. Store properties in HashMap
 5. Increment mutation counter
 6. If threshold reached → trigger async flush
 ```
 
-### L1: Sorted Runs
+### Auto-Flush Triggers
 
-When L0 fills up, it flushes to L1 as an immutable Lance dataset.
+L0 buffer is automatically flushed to L1 (Lance storage) based on two configurable triggers:
+
+| Trigger | Default | Description |
+|---------|---------|-------------|
+| **Mutation Count** | 10,000 | Flush when mutations exceed threshold |
+| **Time Interval** | 5 seconds | Flush after time elapsed (if mutations > 0) |
+
+**Configuration:**
 
 ```rust
-pub struct L1Run {
-    /// Lance dataset for this run
-    dataset: Dataset,
+let config = UniConfig {
+    // Flush on mutation count (high-transaction systems)
+    auto_flush_threshold: 10_000,
 
-    /// VID range covered
-    vid_range: Range<Vid>,
+    // Flush on time interval (low-transaction systems)
+    auto_flush_interval: Some(Duration::from_secs(5)),
 
-    /// Creation timestamp
-    created_at: Timestamp,
+    // Minimum mutations before time-based flush triggers
+    auto_flush_min_mutations: 1,
+    ..Default::default()
+};
+```
 
-    /// Run sequence number
-    sequence: u64,
+**Flush Decision Logic:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         AUTO-FLUSH DECISION                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   After each write:                                                         │
+│                                                                             │
+│   mutations >= 10,000?  ─────Yes────►  FLUSH IMMEDIATELY                   │
+│           │                                                                 │
+│           No                                                                │
+│           │                                                                 │
+│           ▼                                                                 │
+│   Background timer (every 5s):                                              │
+│                                                                             │
+│   time_since_last_flush >= 5s                                               │
+│   AND mutations >= min_mutations?  ─────Yes────►  FLUSH                    │
+│           │                                                                 │
+│           No                                                                │
+│           │                                                                 │
+│           ▼                                                                 │
+│   Continue buffering                                                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Interval Tradeoffs:**
+
+| Interval | Min Mutations | Data at Risk | I/O Overhead | Use Case |
+|----------|---------------|--------------|--------------|----------|
+| 1s | 1 | ~1s | High | Critical data, local storage |
+| **5s** | **1** | **~5s** | **Moderate** | **Default** |
+| 30s | 100 | ~30s | Low | Cost-sensitive cloud workloads |
+| None | - | All unflushed | None | Legacy behavior, WAL-only |
+
+!!! note "WAL Still Provides Crash Recovery"
+    Regardless of flush interval, the Write-Ahead Log ensures no committed data is lost on crash. Time-based flush determines when data reaches L1/cloud storage for query visibility and durability.
+
+### Delta Layer
+
+When L0 fills up, it flushes to the Delta layer as Lance datasets.
+
+```rust
+pub struct DeltaDataset {
+    /// Lance dataset for deltas
+    dataset: Arc<Dataset>,
+
+    /// Edge type this delta is for
+    edge_type: EdgeTypeId,
+
+    /// Direction (outgoing or incoming)
+    direction: Direction,
 }
 
-pub struct L1Manager {
-    /// Active runs (newest first)
-    runs: Vec<L1Run>,
+pub struct L0Manager {
+    /// Current L0 buffer
+    buffer: Arc<RwLock<L0Buffer>>,
 
-    /// Maximum runs before compaction
-    max_runs: usize,
+    /// Storage backend
+    store: Arc<dyn ObjectStore>,
 
-    /// Compaction threshold (bytes)
-    compaction_threshold: usize,
+    /// Schema manager reference
+    schema: Arc<SchemaManager>,
+
+    /// Configuration
+    config: L0ManagerConfig,
 }
 ```
 
@@ -277,8 +348,7 @@ storage/
 │   │ Column   │ Type     │ Description                                    │ │
 │   ├──────────┼──────────┼────────────────────────────────────────────────┤ │
 │   │ _vid     │ UInt64   │ Internal vertex ID (label << 48 | offset)     │ │
-│   │ _uid     │ Binary   │ UniId (32-byte SHA3-256) - optional        │ │
-│   │ _ext_id  │ String   │ External ID from source system                │ │
+│   │ _uid     │ Binary   │ UniId (32-byte SHA3-256) - optional           │ │
 │   │ _deleted │ Bool     │ Tombstone marker (soft delete)                │ │
 │   │ _version │ UInt64   │ Last modified version                         │ │
 │   └──────────┴──────────┴────────────────────────────────────────────────┘ │
@@ -437,30 +507,45 @@ pub enum WalSyncMode {
 }
 ```
 
-### WAL Entry Format
+### WAL Mutation Types
 
+The WAL records mutations using the following enum:
+
+```rust
+pub enum Mutation {
+    /// Insert a new edge
+    InsertEdge {
+        src_vid: Vid,
+        dst_vid: Vid,
+        edge_type: u16,
+        eid: Eid,
+        version: u64,
+        properties: Properties,
+    },
+
+    /// Delete an existing edge
+    DeleteEdge {
+        eid: Eid,
+        src_vid: Vid,
+        dst_vid: Vid,
+        edge_type: u16,
+        version: u64,
+    },
+
+    /// Insert a new vertex
+    InsertVertex {
+        vid: Vid,
+        properties: Properties,
+    },
+
+    /// Delete an existing vertex
+    DeleteVertex {
+        vid: Vid,
+    },
+}
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            WAL ENTRY FORMAT                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   ┌──────────┬──────────┬──────────┬──────────┬────────────────────────┐   │
-│   │  Length  │   CRC    │   Type   │  Flags   │        Payload         │   │
-│   │  4 bytes │  4 bytes │  1 byte  │  1 byte  │      variable          │   │
-│   └──────────┴──────────┴──────────┴──────────┴────────────────────────┘   │
-│                                                                             │
-│   Entry Types:                                                              │
-│   ┌──────────┬───────────────────────────────────────────────────────────┐ │
-│   │ 0x01     │ InsertVertex { vid, label_id, properties }                │ │
-│   │ 0x02     │ InsertEdge { eid, src_vid, dst_vid, type_id, properties } │ │
-│   │ 0x03     │ DeleteVertex { vid }                                      │ │
-│   │ 0x04     │ DeleteEdge { eid }                                        │ │
-│   │ 0x05     │ UpdateProperties { vid, properties }                      │ │
-│   │ 0xFF     │ Checkpoint { sequence, timestamp }                        │ │
-│   └──────────┴───────────────────────────────────────────────────────────┘ │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+
+Note: The label_id is encoded in the VID itself, so `InsertVertex` doesn't need a separate label_id field.
 
 ### Recovery Process
 
@@ -677,105 +762,106 @@ impl ScalarIndexStorage {
 
 ## Object Store Integration
 
-Uni supports multiple storage backends through `object_store`:
+Uni uses the `object_store` crate for storage abstraction, supporting local filesystems and major cloud providers.
 
 ### Supported Backends
 
-| Backend | URI Scheme | Notes |
-|---------|------------|-------|
-| Local filesystem | `file://` | Default, development |
-| Amazon S3 | `s3://` | Production, scalable |
-| Google Cloud Storage | `gs://` | Production, scalable |
-| Azure Blob Storage | `az://` | Production |
-| Memory | `memory://` | Testing only |
+| Backend | URI Scheme | Status |
+|---------|------------|--------|
+| Local filesystem | `file://` or path | **Stable** |
+| Amazon S3 | `s3://bucket/path` | **Stable** |
+| Google Cloud Storage | `gs://bucket/path` | **Stable** |
+| Azure Blob Storage | `az://container/path` | **Stable** |
+| Memory | (in-memory) | **Stable** (testing) |
 
-### Configuration
-
-```rust
-pub struct ObjectStoreConfig {
-    /// Base URI (e.g., "s3://bucket/path")
-    uri: String,
-
-    /// AWS/GCP credentials
-    credentials: Option<Credentials>,
-
-    /// Connection settings
-    max_connections: usize,
-    connect_timeout: Duration,
-    read_timeout: Duration,
-
-    /// Retry configuration
-    retry_config: RetryConfig,
-}
-
-impl StorageManager {
-    pub fn new_with_object_store(
-        uri: &str,
-        schema_manager: Arc<SchemaManager>,
-        config: ObjectStoreConfig,
-    ) -> Result<Self> {
-        let object_store = match uri {
-            s if s.starts_with("s3://") => {
-                AmazonS3Builder::from_env()
-                    .with_url(uri)
-                    .with_max_connections(config.max_connections)
-                    .build()?
-            }
-            s if s.starts_with("gs://") => {
-                GoogleCloudStorageBuilder::from_env()
-                    .with_url(uri)
-                    .build()?
-            }
-            s if s.starts_with("file://") || !s.contains("://") => {
-                LocalFileSystem::new_with_prefix(uri)?
-            }
-            _ => return Err(UnsupportedBackend(uri.to_string())),
-        };
-
-        // Initialize Lance with object store
-        let lance_config = LanceConfig::new(object_store);
-
-        Ok(Self::new_with_lance(lance_config, schema_manager))
-    }
-}
-```
-
-### Local Caching
-
-For remote object stores, local caching improves performance:
+### Using Local Storage
 
 ```rust
-pub struct CachedObjectStore {
-    /// Remote object store
-    remote: Arc<dyn ObjectStore>,
+// Standard local storage
+let db = Uni::open("./my-database").build().await?;
 
-    /// Local cache directory
-    cache_dir: PathBuf,
+// Explicit file:// URI
+let db = Uni::open("file:///var/data/uni").build().await?;
 
-    /// Maximum cache size
-    max_size: usize,
-
-    /// LRU eviction
-    lru: LruCache<Path, CacheEntry>,
-}
-
-impl CachedObjectStore {
-    pub async fn get(&self, path: &Path) -> Result<Bytes> {
-        // Check local cache first
-        if let Some(entry) = self.lru.get(path) {
-            return Ok(entry.data.clone());
-        }
-
-        // Fetch from remote
-        let data = self.remote.get(path).await?.bytes().await?;
-
-        // Cache locally
-        self.cache_locally(path, &data).await?;
-
-        Ok(data)
-    }
-}
+// In-memory for testing
+let db = Uni::in_memory().build().await?;
 ```
+
+### Cloud Storage
+
+Open databases directly from cloud object stores:
+
+```rust
+// Amazon S3
+let db = Uni::open("s3://my-bucket/graph-data").build().await?;
+
+// Google Cloud Storage
+let db = Uni::open("gs://my-bucket/graph-data").build().await?;
+
+// Azure Blob Storage
+let db = Uni::open("az://my-container/graph-data").build().await?;
+```
+
+**Credential Resolution:**
+
+Cloud credentials are resolved automatically using standard environment variables and configuration files:
+
+| Provider | Environment Variables | Config Files |
+|----------|----------------------|--------------|
+| AWS S3 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | `~/.aws/credentials` |
+| GCS | `GOOGLE_APPLICATION_CREDENTIALS` | Application Default Credentials |
+| Azure | `AZURE_STORAGE_ACCOUNT`, `AZURE_STORAGE_KEY` | Azure CLI credentials |
+
+### Hybrid Mode (Local + Cloud)
+
+For optimal performance with cloud storage, use hybrid mode to maintain a local write cache:
+
+```rust
+use uni_common::CloudStorageConfig;
+
+let db = Uni::open("./local-cache")
+    .cloud_storage(CloudStorageConfig {
+        url: "s3://my-bucket/graph-data".to_string(),
+        region: Some("us-east-1".to_string()),
+        ..Default::default()
+    })
+    .build()
+    .await?;
+```
+
+**Hybrid Mode Operation:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            HYBRID MODE                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   WRITES                           READS                                    │
+│   ┌─────────┐                      ┌─────────────────────────────────┐     │
+│   │ Client  │                      │ Query                           │     │
+│   └────┬────┘                      └──────────────┬──────────────────┘     │
+│        │                                          │                         │
+│        ▼                                          ▼                         │
+│   ┌─────────────┐                  ┌─────────────────────────────────┐     │
+│   │ Local L0    │◄────────────────►│ Merge View                      │     │
+│   │ (WAL+Buffer)│                  │ (Local L0 ∪ Cloud Storage)      │     │
+│   └──────┬──────┘                  └─────────────────────────────────┘     │
+│          │                                        ▲                         │
+│          │ flush                                  │                         │
+│          ▼                                        │                         │
+│   ┌─────────────┐                                 │                         │
+│   │ Cloud       │─────────────────────────────────┘                         │
+│   │ (S3/GCS)    │                                                           │
+│   └─────────────┘                                                           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Benefits:**
+- **Low-latency writes**: All mutations go to local WAL + L0 buffer
+- **Durable storage**: Data flushed to cloud storage on interval/threshold
+- **Cost efficiency**: Minimize cloud API calls through batching
+- **Crash recovery**: WAL provides local durability before cloud sync
 
 ---
 
@@ -824,6 +910,12 @@ pub struct StorageConfig {
 
     /// Auto-flush enabled
     pub auto_flush: bool,  // Default: true
+
+    /// Time-based auto-flush interval
+    pub auto_flush_interval: Option<Duration>,  // Default: 5 seconds
+
+    /// Minimum mutations for time-based flush
+    pub auto_flush_min_mutations: usize,  // Default: 1
 
     // L1 Configuration
     /// Maximum L1 runs before compaction

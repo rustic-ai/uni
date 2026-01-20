@@ -38,7 +38,7 @@ The first step is opening or creating a database. Uni uses a builder pattern for
 === "Rust"
 
     ```rust
-    use uni::prelude::*;
+    use uni::*;
 
     #[tokio::main]
     async fn main() -> Result<()> {
@@ -100,6 +100,113 @@ Configure cache size, parallelism, and other options:
         uni.DatabaseBuilder.open("./my-graph")
         .cache_size(2 * 1024 * 1024 * 1024)  # 2 GB cache
         .parallelism(8)                       # 8 worker threads
+        .build()
+    )
+    ```
+
+### Cloud Storage
+
+Open databases directly from cloud object stores:
+
+=== "Rust"
+
+    ```rust
+    // Amazon S3
+    let db = Uni::open("s3://my-bucket/graph-data").build().await?;
+
+    // Google Cloud Storage
+    let db = Uni::open("gs://my-bucket/graph-data").build().await?;
+
+    // Azure Blob Storage
+    let db = Uni::open("az://my-container/graph-data").build().await?;
+    ```
+
+=== "Python"
+
+    ```python
+    # Amazon S3
+    db = uni.DatabaseBuilder.open("s3://my-bucket/graph-data").build()
+
+    # Google Cloud Storage
+    db = uni.DatabaseBuilder.open("gs://my-bucket/graph-data").build()
+
+    # Azure Blob Storage
+    db = uni.DatabaseBuilder.open("az://my-container/graph-data").build()
+    ```
+
+Credentials are resolved automatically from environment variables or standard config files (AWS credentials, GCP Application Default Credentials, Azure CLI).
+
+### Hybrid Mode (Local + Cloud)
+
+For optimal write performance with cloud durability, use hybrid mode:
+
+=== "Rust"
+
+    ```rust
+    use uni_common::CloudStorageConfig;
+
+    // Local cache with S3 backend
+    let db = Uni::open("./local-cache")
+        .cloud_storage(CloudStorageConfig {
+            url: "s3://my-bucket/graph-data".to_string(),
+            region: Some("us-east-1".to_string()),
+            ..Default::default()
+        })
+        .build()
+        .await?;
+    ```
+
+=== "Python"
+
+    ```python
+    # Local cache with S3 backend
+    db = (
+        uni.DatabaseBuilder.open("./local-cache")
+        .cloud_storage(
+            url="s3://my-bucket/graph-data",
+            region="us-east-1"
+        )
+        .build()
+    )
+    ```
+
+In hybrid mode:
+
+- **Writes** go to local WAL + L0 buffer (low latency)
+- **Flushes** persist data to cloud storage (configurable interval, default 5 seconds)
+- **Reads** merge local L0 with cloud storage data
+
+### Auto-Flush Configuration
+
+Control when data is flushed to storage:
+
+=== "Rust"
+
+    ```rust
+    use std::time::Duration;
+
+    let db = Uni::open("./my-graph")
+        .auto_flush_threshold(10_000)                    // Flush at 10K mutations
+        .auto_flush_interval(Duration::from_secs(5))     // Or every 5 seconds
+        .auto_flush_min_mutations(1)                     // With at least 1 mutation
+        .build()
+        .await?;
+
+    // Disable time-based flush (mutation threshold only)
+    let db = Uni::open("./my-graph")
+        .auto_flush_interval(None)
+        .build()
+        .await?;
+    ```
+
+=== "Python"
+
+    ```python
+    db = (
+        uni.DatabaseBuilder.open("./my-graph")
+        .auto_flush_threshold(10_000)       # Flush at 10K mutations
+        .auto_flush_interval_secs(5)        # Or every 5 seconds
+        .auto_flush_min_mutations(1)        # With at least 1 mutation
         .build()
     )
     ```
@@ -794,7 +901,7 @@ Sessions provide scoped context for multi-tenant queries.
         RETURN d.title AS title
     "#)
         .param("status", "published")
-        .fetch_all()
+        .execute()
         .await?;
 
     // Read session variable
@@ -1036,7 +1143,7 @@ Handle errors appropriately in your application.
 === "Rust"
 
     ```rust
-    use uni::prelude::*;
+    use uni::*;
 
     match db.query("INVALID CYPHER").await {
         Ok(results) => {
@@ -1084,7 +1191,7 @@ Here's a complete example building a simple social network application.
 === "Rust"
 
     ```rust
-    use uni::prelude::*;
+    use uni::*;
     use std::collections::HashMap;
 
     #[tokio::main]

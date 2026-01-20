@@ -55,6 +55,8 @@ pub struct Writer {
     pub transaction_l0: Option<Arc<RwLock<L0Buffer>>>,
     /// Property manager for cache invalidation after flush
     pub property_manager: Option<Arc<PropertyManager>>,
+    /// Timestamp of last flush or creation
+    last_flush_time: std::time::Instant,
 }
 
 impl Writer {
@@ -111,6 +113,7 @@ impl Writer {
             embedding_services: Arc::new(Mutex::new(HashMap::new())),
             transaction_l0: None,
             property_manager,
+            last_flush_time: std::time::Instant::now(),
         })
     }
 
@@ -619,11 +622,31 @@ impl Writer {
         Ok(())
     }
 
-    async fn check_flush(&mut self) -> Result<()> {
+    /// Check if flush should be triggered based on mutation count or time elapsed.
+    /// This method is called after each write operation and can also be called
+    /// by a background task for time-based flushing.
+    pub async fn check_flush(&mut self) -> Result<()> {
         let count = self.l0_manager.get_current().read().mutation_count;
+
+        // Skip if no mutations
+        if count == 0 {
+            return Ok(());
+        }
+
+        // Flush on mutation count threshold (10,000 default)
         if count >= self.config.auto_flush_threshold {
             self.flush_to_l1(None).await?;
+            return Ok(());
         }
+
+        // Flush on time interval IF minimum mutations met
+        if let Some(interval) = self.config.auto_flush_interval
+            && self.last_flush_time.elapsed() >= interval
+            && count >= self.config.auto_flush_min_mutations
+        {
+            self.flush_to_l1(None).await?;
+        }
+
         Ok(())
     }
 
@@ -1046,6 +1069,9 @@ impl Writer {
         if let Some(ref pm) = self.property_manager {
             pm.clear_cache().await;
         }
+
+        // Reset last flush time for time-based auto-flush
+        self.last_flush_time = std::time::Instant::now();
 
         info!(
             snapshot_id,

@@ -401,6 +401,15 @@ pub struct UniConfig {
     /// Auto-flush threshold for L0 buffer (default: 10_000 mutations)
     pub auto_flush_threshold: usize,
 
+    /// Auto-flush interval for L0 buffer (default: 5 seconds).
+    /// Flush triggers if time elapsed AND mutation count >= auto_flush_min_mutations.
+    /// Set to None to disable time-based flush.
+    pub auto_flush_interval: Option<Duration>,
+
+    /// Minimum mutations required before time-based flush triggers (default: 1).
+    /// Prevents unnecessary flushes when there's minimal activity.
+    pub auto_flush_min_mutations: usize,
+
     /// Enable write-ahead logging (default: true)
     pub wal_enabled: bool,
 
@@ -442,6 +451,8 @@ impl Default for UniConfig {
             batch_size: 1024, // Default morsel size
             max_frontier_size: 1_000_000,
             auto_flush_threshold: 10_000,
+            auto_flush_interval: Some(Duration::from_secs(5)),
+            auto_flush_min_mutations: 1,
             wal_enabled: true,
             compaction: CompactionConfig::default(),
             throttle: WriteThrottleConfig::default(),
@@ -451,6 +462,150 @@ impl Default for UniConfig {
             max_query_memory: 1024 * 1024 * 1024, // 1GB
             object_store: ObjectStoreConfig::default(),
             index_rebuild: IndexRebuildConfig::default(),
+        }
+    }
+}
+
+/// Cloud storage backend configuration.
+///
+/// Supports Amazon S3, Google Cloud Storage, and Azure Blob Storage.
+/// Each variant contains the credentials and connection parameters for
+/// its respective cloud provider.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Create S3 configuration from environment variables
+/// let config = CloudStorageConfig::s3_from_env("my-bucket");
+///
+/// // Create explicit S3 configuration for LocalStack testing
+/// let config = CloudStorageConfig::S3 {
+///     bucket: "test-bucket".to_string(),
+///     region: Some("us-east-1".to_string()),
+///     endpoint: Some("http://localhost:4566".to_string()),
+///     access_key_id: Some("test".to_string()),
+///     secret_access_key: Some("test".to_string()),
+///     session_token: None,
+///     virtual_hosted_style: false,
+/// };
+/// ```
+#[derive(Clone, Debug)]
+pub enum CloudStorageConfig {
+    /// Amazon S3 storage configuration.
+    S3 {
+        /// S3 bucket name.
+        bucket: String,
+        /// AWS region (e.g., "us-east-1"). Uses AWS_REGION env var if None.
+        region: Option<String>,
+        /// Custom endpoint URL for S3-compatible services (MinIO, LocalStack).
+        endpoint: Option<String>,
+        /// AWS access key ID. Uses AWS_ACCESS_KEY_ID env var if None.
+        access_key_id: Option<String>,
+        /// AWS secret access key. Uses AWS_SECRET_ACCESS_KEY env var if None.
+        secret_access_key: Option<String>,
+        /// AWS session token for temporary credentials.
+        session_token: Option<String>,
+        /// Use virtual-hosted-style requests (bucket.s3.region.amazonaws.com).
+        virtual_hosted_style: bool,
+    },
+    /// Google Cloud Storage configuration.
+    Gcs {
+        /// GCS bucket name.
+        bucket: String,
+        /// Path to service account JSON key file.
+        service_account_path: Option<String>,
+        /// Service account JSON key content (alternative to path).
+        service_account_key: Option<String>,
+    },
+    /// Azure Blob Storage configuration.
+    Azure {
+        /// Azure container name.
+        container: String,
+        /// Azure storage account name.
+        account: String,
+        /// Azure storage account access key.
+        access_key: Option<String>,
+        /// Azure SAS token for limited access.
+        sas_token: Option<String>,
+    },
+}
+
+impl CloudStorageConfig {
+    /// Creates an S3 configuration using environment variables.
+    ///
+    /// Reads credentials from standard AWS environment variables:
+    /// - `AWS_ACCESS_KEY_ID`
+    /// - `AWS_SECRET_ACCESS_KEY`
+    /// - `AWS_SESSION_TOKEN` (optional)
+    /// - `AWS_REGION` or `AWS_DEFAULT_REGION`
+    /// - `AWS_ENDPOINT_URL` (optional, for S3-compatible services)
+    #[must_use]
+    pub fn s3_from_env(bucket: &str) -> Self {
+        Self::S3 {
+            bucket: bucket.to_string(),
+            region: std::env::var("AWS_REGION")
+                .or_else(|_| std::env::var("AWS_DEFAULT_REGION"))
+                .ok(),
+            endpoint: std::env::var("AWS_ENDPOINT_URL").ok(),
+            access_key_id: std::env::var("AWS_ACCESS_KEY_ID").ok(),
+            secret_access_key: std::env::var("AWS_SECRET_ACCESS_KEY").ok(),
+            session_token: std::env::var("AWS_SESSION_TOKEN").ok(),
+            virtual_hosted_style: false,
+        }
+    }
+
+    /// Creates a GCS configuration using environment variables.
+    ///
+    /// Reads service account path from `GOOGLE_APPLICATION_CREDENTIALS`.
+    #[must_use]
+    pub fn gcs_from_env(bucket: &str) -> Self {
+        Self::Gcs {
+            bucket: bucket.to_string(),
+            service_account_path: std::env::var("GOOGLE_APPLICATION_CREDENTIALS").ok(),
+            service_account_key: None,
+        }
+    }
+
+    /// Creates an Azure configuration using environment variables.
+    ///
+    /// Reads credentials from Azure environment variables:
+    /// - `AZURE_STORAGE_ACCOUNT`
+    /// - `AZURE_STORAGE_ACCESS_KEY` (optional)
+    /// - `AZURE_STORAGE_SAS_TOKEN` (optional)
+    ///
+    /// # Panics
+    ///
+    /// Panics if `AZURE_STORAGE_ACCOUNT` is not set.
+    #[must_use]
+    pub fn azure_from_env(container: &str) -> Self {
+        Self::Azure {
+            container: container.to_string(),
+            account: std::env::var("AZURE_STORAGE_ACCOUNT")
+                .expect("AZURE_STORAGE_ACCOUNT environment variable required"),
+            access_key: std::env::var("AZURE_STORAGE_ACCESS_KEY").ok(),
+            sas_token: std::env::var("AZURE_STORAGE_SAS_TOKEN").ok(),
+        }
+    }
+
+    /// Returns the bucket/container name for this configuration.
+    #[must_use]
+    pub fn bucket_name(&self) -> &str {
+        match self {
+            Self::S3 { bucket, .. } => bucket,
+            Self::Gcs { bucket, .. } => bucket,
+            Self::Azure { container, .. } => container,
+        }
+    }
+
+    /// Returns a URL-style identifier for this storage location.
+    #[must_use]
+    pub fn to_url(&self) -> String {
+        match self {
+            Self::S3 { bucket, .. } => format!("s3://{bucket}"),
+            Self::Gcs { bucket, .. } => format!("gs://{bucket}"),
+            Self::Azure {
+                container, account, ..
+            } => format!("az://{account}/{container}"),
         }
     }
 }

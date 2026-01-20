@@ -27,39 +27,62 @@ Uni can be configured through:
 
 ---
 
-## Storage Configuration
+## Main Configuration
 
-### StorageConfig
+### UniConfig
 
 ```rust
-pub struct StorageConfig {
-    // L0 Buffer Configuration
-    pub max_l0_size: usize,
-    pub max_mutations_before_flush: usize,
-    pub auto_flush: bool,
+pub struct UniConfig {
+    /// Maximum adjacency cache size in bytes (default: 1GB)
+    pub cache_size: usize,
 
-    // L1 Configuration
-    pub max_l1_runs: usize,
-    pub l1_compaction_threshold: usize,
+    /// Number of worker threads for parallel execution
+    pub parallelism: usize,
 
-    // WAL Configuration
-    pub wal_sync_mode: WalSyncMode,
-    pub wal_segment_size: usize,
-    pub wal_dir: Option<PathBuf>,
+    /// Size of each data morsel/batch (number of rows)
+    pub batch_size: usize,
 
-    // Cache Configuration
-    pub adjacency_cache_size: usize,
-    pub adjacency_cache_ttl: Duration,
-    pub property_cache_size: usize,
+    /// Maximum size of traversal frontier before pruning
+    pub max_frontier_size: usize,
 
-    // I/O Configuration
-    pub read_ahead_size: usize,
-    pub prefetch_enabled: bool,
-    pub max_open_files: usize,
+    /// Auto-flush threshold for L0 buffer (default: 10_000 mutations)
+    pub auto_flush_threshold: usize,
 
-    // Memory Configuration
-    pub memory_limit: Option<usize>,
-    pub enable_memory_tracking: bool,
+    /// Auto-flush interval for L0 buffer (default: 5 seconds).
+    /// Flush triggers if time elapsed AND mutation count >= auto_flush_min_mutations.
+    /// Set to None to disable time-based flush.
+    pub auto_flush_interval: Option<Duration>,
+
+    /// Minimum mutations required before time-based flush triggers (default: 1).
+    /// Prevents unnecessary flushes when there's minimal activity.
+    pub auto_flush_min_mutations: usize,
+
+    /// Enable write-ahead logging (default: true)
+    pub wal_enabled: bool,
+
+    /// Compaction configuration
+    pub compaction: CompactionConfig,
+
+    /// Write throttling configuration
+    pub throttle: WriteThrottleConfig,
+
+    /// Optional snapshot ID to open the database at (time-travel)
+    pub at_snapshot: Option<String>,
+
+    /// File sandbox configuration for BACKUP/COPY/EXPORT commands
+    pub file_sandbox: FileSandboxConfig,
+
+    /// Default query execution timeout (default: 30s)
+    pub query_timeout: Duration,
+
+    /// Default maximum memory per query (default: 1GB)
+    pub max_query_memory: usize,
+
+    /// Object store resilience configuration
+    pub object_store: ObjectStoreConfig,
+
+    /// Background index rebuild configuration
+    pub index_rebuild: IndexRebuildConfig,
 }
 ```
 
@@ -67,20 +90,101 @@ pub struct StorageConfig {
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `max_l0_size` | bytes | 128 MB | Maximum L0 buffer size before flush |
-| `max_mutations_before_flush` | count | 10,000 | Mutations triggering auto-flush |
-| `auto_flush` | bool | true | Enable automatic flushing |
-| `max_l1_runs` | count | 4 | L1 runs before compaction |
-| `l1_compaction_threshold` | bytes | 256 MB | Size threshold for L1→L2 compaction |
-| `wal_sync_mode` | enum | Periodic(100ms) | WAL durability mode |
-| `wal_segment_size` | bytes | 64 MB | WAL segment rotation size |
-| `adjacency_cache_size` | vertices | 1,000,000 | Maximum cached vertices |
-| `adjacency_cache_ttl` | duration | 1 hour | Cache entry TTL |
-| `property_cache_size` | entries | 100,000 | Property cache capacity |
-| `read_ahead_size` | bytes | 64 MB | Sequential read prefetch size |
-| `prefetch_enabled` | bool | true | Enable I/O prefetching |
-| `max_open_files` | count | 1,000 | Maximum open file handles |
-| `memory_limit` | bytes | None | Per-process memory limit |
+| `cache_size` | bytes | 1 GB | Maximum adjacency cache size |
+| `parallelism` | count | CPU cores | Worker threads for parallel execution |
+| `batch_size` | rows | 1,024 | Rows per morsel/batch |
+| `max_frontier_size` | count | 1,000,000 | Maximum traversal frontier size |
+| `auto_flush_threshold` | count | 10,000 | Mutations triggering auto-flush |
+| `auto_flush_interval` | duration | 5s | Time-based flush interval (None to disable) |
+| `auto_flush_min_mutations` | count | 1 | Minimum mutations for time-based flush |
+| `wal_enabled` | bool | true | Enable write-ahead logging |
+| `at_snapshot` | string | None | Open database at specific snapshot |
+| `query_timeout` | duration | 30s | Default query execution timeout |
+| `max_query_memory` | bytes | 1 GB | Maximum memory per query |
+
+### CompactionConfig
+
+```rust
+pub struct CompactionConfig {
+    /// Enable background compaction (default: true)
+    pub enabled: bool,
+
+    /// Max L1 runs before triggering compaction (default: 4)
+    pub max_l1_runs: usize,
+
+    /// Max L1 size in bytes before compaction (default: 256MB)
+    pub max_l1_size_bytes: u64,
+
+    /// Max age of oldest L1 run before compaction (default: 1 hour)
+    pub max_l1_age: Duration,
+
+    /// Background check interval (default: 30s)
+    pub check_interval: Duration,
+
+    /// Number of compaction worker threads (default: 1)
+    pub worker_threads: usize,
+}
+```
+
+### WriteThrottleConfig
+
+```rust
+pub struct WriteThrottleConfig {
+    /// L1 run count to start throttling (default: 8)
+    pub soft_limit: usize,
+
+    /// L1 run count to stop writes entirely (default: 16)
+    pub hard_limit: usize,
+
+    /// Base delay when throttling (default: 10ms)
+    pub base_delay: Duration,
+}
+```
+
+### FileSandboxConfig (Security-Critical)
+
+```rust
+pub struct FileSandboxConfig {
+    /// If true, file operations are restricted to allowed_paths
+    /// MUST be enabled for server mode with untrusted clients
+    pub enabled: bool,
+
+    /// List of allowed base directories for file operations
+    pub allowed_paths: Vec<PathBuf>,
+}
+```
+
+**Security Note:** File sandbox MUST be enabled in server mode to prevent path traversal attacks (CWE-22).
+
+### ObjectStoreConfig
+
+```rust
+pub struct ObjectStoreConfig {
+    pub connect_timeout: Duration,    // Default: 10s
+    pub read_timeout: Duration,       // Default: 30s
+    pub write_timeout: Duration,      // Default: 60s
+    pub max_retries: u32,             // Default: 3
+    pub retry_backoff_base: Duration, // Default: 100ms
+    pub retry_backoff_max: Duration,  // Default: 10s
+}
+```
+
+### IndexRebuildConfig
+
+```rust
+pub struct IndexRebuildConfig {
+    /// Maximum retry attempts for failed builds (default: 3)
+    pub max_retries: u32,
+
+    /// Delay between retry attempts (default: 60s)
+    pub retry_delay: Duration,
+
+    /// Check interval for pending tasks (default: 5s)
+    pub worker_check_interval: Duration,
+}
+```
+
+---
 
 ### WAL Sync Modes
 
@@ -302,9 +406,137 @@ All environment variables use the `UNI_` prefix.
 |----------|------|---------|-------------|
 | `AWS_ACCESS_KEY_ID` | string | - | S3 access key |
 | `AWS_SECRET_ACCESS_KEY` | string | - | S3 secret key |
+| `AWS_SESSION_TOKEN` | string | - | S3 session token (temporary credentials) |
 | `AWS_REGION` | string | `us-east-1` | S3 region |
-| `AWS_ENDPOINT_URL` | string | - | Custom S3 endpoint |
-| `GOOGLE_APPLICATION_CREDENTIALS` | path | - | GCS service account |
+| `AWS_DEFAULT_REGION` | string | `us-east-1` | S3 region (alternative) |
+| `AWS_ENDPOINT_URL` | string | - | Custom S3 endpoint (MinIO, LocalStack) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | path | - | GCS service account JSON path |
+| `AZURE_STORAGE_ACCOUNT` | string | - | Azure storage account name |
+| `AZURE_STORAGE_ACCESS_KEY` | string | - | Azure storage access key |
+| `AZURE_STORAGE_SAS_TOKEN` | string | - | Azure SAS token |
+
+---
+
+## Cloud Storage Configuration
+
+Uni supports cloud storage backends for bulk data storage while keeping metadata and WAL local for low latency.
+
+### Supported Backends
+
+| Backend | URL Scheme | Status |
+|---------|------------|--------|
+| Local filesystem | `/path` or `file://` | Fully supported |
+| Amazon S3 | `s3://bucket/path` | Supported |
+| Google Cloud Storage | `gs://bucket/path` | Supported |
+| Azure Blob Storage | `az://account/container` | Supported |
+| S3-compatible (MinIO) | `s3://` with custom endpoint | Supported |
+
+### Hybrid Mode
+
+Hybrid mode stores bulk data in cloud storage while keeping WAL and metadata local:
+
+```rust
+use uni::Uni;
+
+let db = Uni::open("./local_meta")
+    .hybrid("./local_meta", "s3://my-bucket/graph-data")
+    .build()
+    .await?;
+```
+
+**Benefits:**
+- Low-latency writes via local WAL
+- Scalable storage via cloud object store
+- Cost-effective for large datasets
+
+### S3 Configuration
+
+```rust
+use uni::Uni;
+use uni_common::CloudStorageConfig;
+
+// Using environment variables (recommended)
+let config = CloudStorageConfig::s3_from_env("my-bucket");
+
+// Or explicit configuration
+let config = CloudStorageConfig::S3 {
+    bucket: "my-bucket".to_string(),
+    region: Some("us-west-2".to_string()),
+    endpoint: None,  // Use AWS default
+    access_key_id: None,  // Use env/IAM
+    secret_access_key: None,
+    session_token: None,
+    virtual_hosted_style: true,
+};
+
+let db = Uni::open("./local")
+    .hybrid("./local", "s3://my-bucket/data")
+    .cloud_config(config)
+    .build()
+    .await?;
+```
+
+**For S3-compatible services (MinIO, LocalStack):**
+
+```rust
+let config = CloudStorageConfig::S3 {
+    bucket: "test-bucket".to_string(),
+    region: Some("us-east-1".to_string()),
+    endpoint: Some("http://localhost:9000".to_string()),
+    access_key_id: Some("minioadmin".to_string()),
+    secret_access_key: Some("minioadmin".to_string()),
+    session_token: None,
+    virtual_hosted_style: false,  // Path-style for MinIO
+};
+```
+
+### GCS Configuration
+
+```rust
+use uni_common::CloudStorageConfig;
+
+// Using environment variable (GOOGLE_APPLICATION_CREDENTIALS)
+let config = CloudStorageConfig::gcs_from_env("my-gcs-bucket");
+
+// Or explicit configuration
+let config = CloudStorageConfig::Gcs {
+    bucket: "my-gcs-bucket".to_string(),
+    service_account_path: Some("/path/to/service-account.json".to_string()),
+    service_account_key: None,
+};
+```
+
+### Azure Configuration
+
+```rust
+use uni_common::CloudStorageConfig;
+
+// Using environment variables
+let config = CloudStorageConfig::azure_from_env("my-container");
+
+// Or explicit configuration
+let config = CloudStorageConfig::Azure {
+    container: "my-container".to_string(),
+    account: "mystorageaccount".to_string(),
+    access_key: Some("account-key".to_string()),
+    sas_token: None,
+};
+```
+
+### Cloud Storage with BACKUP/COPY/EXPORT
+
+BACKUP, COPY, and EXPORT commands support cloud URLs:
+
+```cypher
+-- Backup to S3
+BACKUP TO 's3://backup-bucket/uni-backup-2024'
+
+-- Import from S3
+COPY Person FROM 's3://data-bucket/people.parquet'
+
+-- Export to GCS
+EXPORT Person TO 'gs://export-bucket/people.parquet'
+```
 
 ### Example
 
@@ -532,19 +764,15 @@ The JSON schema parser is generally case-sensitive for enum values. Use PascalCa
 ### High Throughput (Batch Processing)
 
 ```rust
-let storage_config = StorageConfig {
-    max_l0_size: 512 * 1024 * 1024,  // 512 MB
-    max_mutations_before_flush: 100_000,
-    wal_sync_mode: WalSyncMode::Async,
-    adjacency_cache_size: 10_000_000,
-    ..Default::default()
-};
+use std::time::Duration;
 
-let executor_config = ExecutorConfig {
-    worker_threads: num_cpus::get(),
-    morsel_size: 8192,
+let config = UniConfig {
+    // Large L0 buffer for batch writes
+    auto_flush_threshold: 100_000,
+    auto_flush_interval: None,  // Disable time-based flush during batch
+    cache_size: 10 * 1024 * 1024 * 1024,  // 10 GB
+    parallelism: num_cpus::get(),
     batch_size: 8192,
-    memory_limit: 16 * 1024 * 1024 * 1024,
     ..Default::default()
 };
 ```
@@ -552,39 +780,77 @@ let executor_config = ExecutorConfig {
 ### Low Latency (Interactive)
 
 ```rust
-let storage_config = StorageConfig {
-    max_l0_size: 32 * 1024 * 1024,  // 32 MB
-    max_mutations_before_flush: 1_000,
-    wal_sync_mode: WalSyncMode::Sync,
-    adjacency_cache_size: 5_000_000,
-    property_cache_size: 500_000,
+use std::time::Duration;
+
+let config = UniConfig {
+    // Small L0 for fast flush
+    auto_flush_threshold: 1_000,
+    auto_flush_interval: Some(Duration::from_secs(1)),  // Flush quickly
+    auto_flush_min_mutations: 1,
+    cache_size: 5 * 1024 * 1024 * 1024,  // 5 GB
+    parallelism: 4,
+    batch_size: 2048,
+    query_timeout: Duration::from_secs(30),
+    ..Default::default()
+};
+```
+
+### Low-Transaction System
+
+For systems with infrequent writes that still need timely durability:
+
+```rust
+use std::time::Duration;
+
+let config = UniConfig {
+    auto_flush_threshold: 10_000,
+    // Time-based flush ensures data reaches storage
+    auto_flush_interval: Some(Duration::from_secs(5)),
+    auto_flush_min_mutations: 1,  // Flush even with 1 pending mutation
+    ..Default::default()
+};
+```
+
+### Cloud Storage (Cost Optimized)
+
+For cloud storage backends where minimizing API calls matters:
+
+```rust
+use std::time::Duration;
+use uni_common::CloudStorageConfig;
+
+let config = UniConfig {
+    // Larger batches = fewer PUT operations
+    auto_flush_threshold: 50_000,
+    auto_flush_interval: Some(Duration::from_secs(30)),
+    auto_flush_min_mutations: 100,  // Don't flush for just a few writes
     ..Default::default()
 };
 
-let executor_config = ExecutorConfig {
-    worker_threads: 4,
-    morsel_size: 1024,
-    batch_size: 2048,
-    timeout: Duration::from_secs(30),
-    ..Default::default()
-};
+let db = Uni::open("./local-cache")
+    .config(config)
+    .cloud_storage(CloudStorageConfig {
+        url: "s3://my-bucket/data".to_string(),
+        ..Default::default()
+    })
+    .build()
+    .await?;
 ```
 
 ### Memory Constrained
 
 ```rust
-let storage_config = StorageConfig {
-    max_l0_size: 16 * 1024 * 1024,  // 16 MB
-    adjacency_cache_size: 100_000,
-    property_cache_size: 10_000,
-    ..Default::default()
-};
+use std::time::Duration;
 
-let executor_config = ExecutorConfig {
-    worker_threads: 2,
-    morsel_size: 512,
+let config = UniConfig {
+    // Small caches
+    cache_size: 512 * 1024 * 1024,  // 512 MB
+    // Flush frequently to keep memory low
+    auto_flush_threshold: 1_000,
+    auto_flush_interval: Some(Duration::from_secs(2)),
+    parallelism: 2,
     batch_size: 1024,
-    memory_limit: 512 * 1024 * 1024,  // 512 MB
+    max_query_memory: 256 * 1024 * 1024,  // 256 MB per query
     ..Default::default()
 };
 ```

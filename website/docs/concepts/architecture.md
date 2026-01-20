@@ -10,10 +10,11 @@ Before diving into the architecture, understand the key principles that guided U
 |-----------|-------------|
 | **Embedded First** | No separate server process; runs as a library in your application |
 | **Multi-Model Unity** | Graph, vector, document, and columnar in one engine, not bolted together |
-| **Object-Store Native** | Designed for 100ms latency storage (S3/GCS), minimal round-trips |
+| **Object-Store Native** | Designed for cloud storage (S3/GCS/Azure) with local caching for low-latency |
 | **Vectorized Execution** | Batch processing with Apache Arrow for 100x+ speedups |
 | **Single-Writer Simplicity** | No distributed consensus; one writer, many readers, snapshot isolation |
 | **Late Materialization** | Load properties only when needed to minimize I/O |
+| **Time-Based Durability** | Auto-flush ensures data reaches storage within configurable intervals |
 
 ---
 
@@ -211,7 +212,7 @@ flowchart TB
     M["Mutations (INSERT/DELETE)"]
 
     subgraph L0["L0 Buffer"]
-        DG["DeltaGraph<br/>(gryf-backed)"]
+        DG["Graph<br/>(SimpleGraph)"]
         PM["Property Maps<br/>vertex_props, edge_props"]
         TS["Tombstones<br/>(Deletes)"]
         VT["Version Tracking<br/>current_version: u64"]
@@ -306,7 +307,12 @@ writer.check_flush()?;                   // → Maybe L0 → Lance
 2. Write to WAL for durability
 3. Insert into L0 buffer
 4. Return immediately (async durability)
-5. Background flush when L0 full
+5. Auto-flush when mutation threshold OR time interval reached
+
+**Auto-Flush Triggers:**
+- **Mutation count** (default: 10,000): Flush when buffer fills
+- **Time interval** (default: 5 seconds): Flush after elapsed time with pending mutations
+- Ensures data reaches storage/cloud within bounded time even on low-transaction systems
 
 ---
 
@@ -323,8 +329,9 @@ The Storage Layer provides durable, versioned, columnar storage via Lance.
 | **Columnar Storage** | Efficient analytical scans |
 | **Vector Indexes** | Native HNSW/IVF for ANN search |
 | **Versioning** | Time-travel, snapshot isolation |
-| **Object Store** | S3/GCS native support |
+| **Object Store Native** | S3/GCS/Azure with automatic credential resolution |
 | **Random Access** | Fast point lookups by row ID |
+| **Hybrid Mode** | Local write cache + cloud storage for optimal latency |
 
 ### Dataset Layout
 
@@ -366,7 +373,6 @@ storage/
 │ _uid         │ [u8; 32] - UniId (SHA3-256 content hash)                     │
 │ _deleted     │ bool - Soft delete flag                                      │
 │ _version     │ u64 - Last modification version                              │
-│ ext_id       │ String - External ID (user-provided)                         │
 │ <properties> │ User-defined columns per schema                              │
 └──────────────┴──────────────────────────────────────────────────────────────┘
 ```
@@ -479,8 +485,8 @@ flowchart TB
 |-----------|------------|---------|
 | **Storage Format** | Lance | Columnar, versioned, vector-native |
 | **Columnar Runtime** | Apache Arrow | Zero-copy data representation |
-| **Query Processing** | DataFusion | Relational operators, predicate pushdown |
-| **Graph Runtime** | gryf | In-memory graph algorithms |
+| **Query Processing** | Custom vectorized engine | Morsel-driven batch execution |
+| **Graph Runtime** | SimpleGraph (custom) | In-memory graph algorithms |
 | **Object Store** | object_store | S3/GCS/Azure abstraction |
 | **Parsing** | sqlparser | SQL/Cypher tokenization |
 | **Concurrency** | DashMap, tokio | Thread-safe caching, async I/O |

@@ -18,9 +18,10 @@ pub mod vector;
 use object_store::ObjectStore;
 use object_store::local::LocalFileSystem;
 use tracing::info;
-use uni_common::UniConfig;
 use uni_common::core::snapshot::SnapshotManifest;
+use uni_common::{CloudStorageConfig, UniConfig};
 use uni_common::{Result, UniError};
+use uni_store::cloud::build_cloud_store;
 
 use uni_common::core::schema::SchemaManager;
 use uni_store::runtime::id_allocator::IdAllocator;
@@ -660,17 +661,20 @@ pub struct UniBuilder {
     config: UniConfig,
     schema_file: Option<PathBuf>,
     hybrid_remote_url: Option<String>,
+    cloud_config: Option<CloudStorageConfig>,
     create_if_missing: bool,
     fail_if_exists: bool,
 }
 
 impl UniBuilder {
+    /// Creates a new builder for the given URI.
     pub fn new(uri: String) -> Self {
         Self {
             uri,
             config: UniConfig::default(),
             schema_file: None,
             hybrid_remote_url: None,
+            cloud_config: None,
             create_if_missing: true,
             fail_if_exists: false,
         }
@@ -685,10 +689,50 @@ impl UniBuilder {
     /// Configure hybrid storage with a local path for WAL/IDs and a remote URL for data.
     ///
     /// This allows fast local writes and metadata operations while storing bulk data
-    /// in object storage (e.g., S3).
+    /// in object storage (e.g., S3, GCS, Azure Blob Storage).
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let db = Uni::open("./local_meta")
+    ///     .hybrid("./local_meta", "s3://my-bucket/graph-data")
+    ///     .build()
+    ///     .await?;
+    /// ```
     pub fn hybrid(mut self, local_path: impl AsRef<Path>, remote_url: &str) -> Self {
         self.uri = local_path.as_ref().to_string_lossy().to_string();
         self.hybrid_remote_url = Some(remote_url.to_string());
+        self
+    }
+
+    /// Configure cloud storage with explicit credentials.
+    ///
+    /// Use this method when you need fine-grained control over cloud storage
+    /// credentials instead of relying on environment variables.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use uni_common::CloudStorageConfig;
+    ///
+    /// let config = CloudStorageConfig::S3 {
+    ///     bucket: "my-bucket".to_string(),
+    ///     region: Some("us-east-1".to_string()),
+    ///     endpoint: Some("http://localhost:4566".to_string()), // LocalStack
+    ///     access_key_id: Some("test".to_string()),
+    ///     secret_access_key: Some("test".to_string()),
+    ///     session_token: None,
+    ///     virtual_hosted_style: false,
+    /// };
+    ///
+    /// let db = Uni::open("./local_meta")
+    ///     .hybrid("./local_meta", "s3://my-bucket/data")
+    ///     .cloud_config(config)
+    ///     .build()
+    ///     .await?;
+    /// ```
+    pub fn cloud_config(mut self, config: CloudStorageConfig) -> Self {
+        self.cloud_config = Some(config);
         self
     }
 
@@ -733,16 +777,20 @@ impl UniBuilder {
         let (storage_uri, data_store, local_store_opt) = if is_hybrid {
             let remote_url = self.hybrid_remote_url.as_ref().unwrap();
 
-            // Remote Store (Data)
-            let url = url::Url::parse(remote_url).map_err(|e| {
-                UniError::Io(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    e.to_string(),
-                ))
-            })?;
-            let (os, _path) =
-                object_store::parse_url(&url).map_err(|e| UniError::Internal(e.into()))?;
-            let remote_store = Arc::from(os);
+            // Remote Store (Data) - use explicit cloud_config if provided
+            let remote_store: Arc<dyn ObjectStore> = if let Some(cloud_cfg) = &self.cloud_config {
+                build_cloud_store(cloud_cfg).map_err(UniError::Internal)?
+            } else {
+                let url = url::Url::parse(remote_url).map_err(|e| {
+                    UniError::Io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        e.to_string(),
+                    ))
+                })?;
+                let (os, _path) =
+                    object_store::parse_url(&url).map_err(|e| UniError::Internal(e.into()))?;
+                Arc::from(os)
+            };
 
             // Local Store (WAL, IDs)
             let path = PathBuf::from(&uri);
@@ -772,18 +820,20 @@ impl UniBuilder {
                 Some(local_store as Arc<dyn ObjectStore>),
             )
         } else if is_remote_uri {
-            // Remote Only
-            // TODO: How to check existence efficiently on generic ObjectStore?
-            // For now, assume it exists or we can create if writeable.
-            let url = url::Url::parse(&uri).map_err(|e| {
-                UniError::Io(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    e.to_string(),
-                ))
-            })?;
-            let (os, _path) =
-                object_store::parse_url(&url).map_err(|e| UniError::Internal(e.into()))?;
-            let remote_store = Arc::from(os);
+            // Remote Only - use explicit cloud_config if provided
+            let remote_store: Arc<dyn ObjectStore> = if let Some(cloud_cfg) = &self.cloud_config {
+                build_cloud_store(cloud_cfg).map_err(UniError::Internal)?
+            } else {
+                let url = url::Url::parse(&uri).map_err(|e| {
+                    UniError::Io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        e.to_string(),
+                    ))
+                })?;
+                let (os, _path) =
+                    object_store::parse_url(&url).map_err(|e| UniError::Internal(e.into()))?;
+                Arc::from(os)
+            };
 
             (uri.clone(), remote_store, None)
         } else {
@@ -944,6 +994,21 @@ impl UniBuilder {
             if replayed > 0 {
                 info!("WAL recovery: replayed {} mutations", replayed);
             }
+        }
+
+        // Start background flush checker for time-based auto-flush
+        if let Some(interval) = self.config.auto_flush_interval {
+            let writer_clone = writer.clone();
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(interval);
+                loop {
+                    ticker.tick().await;
+                    let mut w = writer_clone.write().await;
+                    if let Err(e) = w.check_flush().await {
+                        tracing::warn!("Background flush check failed: {}", e);
+                    }
+                }
+            });
         }
 
         Ok(Uni {
