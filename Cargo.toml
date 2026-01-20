@@ -50,7 +50,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 log = "0.4"
 env_logger = "0.11"
 clap = { version = "4.4", features = ["derive"] }
-object_store = "0.11"
+object_store = { version = "0.11", features = ["aws", "gcp", "azure"] }
 tempfile = "3.10"
 uuid = { version = "1.8", features = ["v4"] }
 chrono = "=0.4.39"

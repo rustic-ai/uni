@@ -13,6 +13,8 @@ uni-store = { workspace = true }
 uni-algo = { workspace = true }
 uni-crdt = { workspace = true }
 tokio = { workspace = true }
+object_store = { workspace = true }
+bytes = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -22,6 +22,7 @@ use tracing::instrument;
 use uni_common::core::id::Vid;
 use uni_common::core::schema::{ConstraintTarget, ConstraintType, DataType, SchemaManager};
 use uni_store::QueryContext;
+use uni_store::cloud::{build_store_from_url, copy_store_prefix, is_cloud_url};
 use uni_store::runtime::property_manager::PropertyManager;
 use uni_store::runtime::writer::Writer;
 use uni_store::storage::arrow_convert;
@@ -2420,14 +2421,14 @@ impl Executor {
         std::cmp::Ordering::Equal
     }
 
+    /// Executes BACKUP command to local or cloud storage.
+    ///
+    /// Supports both local filesystem paths and cloud URLs (s3://, gs://, az://).
     pub(crate) async fn execute_backup(
         &self,
         destination: &str,
         _options: &HashMap<String, Value>,
     ) -> Result<Vec<HashMap<String, Value>>> {
-        // Validate destination path against sandbox
-        let validated_dest = self.validate_path(destination)?;
-
         // 1. Flush L0
         if let Some(writer_arc) = &self.writer {
             let mut writer = writer_arc.write().await;
@@ -2441,38 +2442,16 @@ impl Executor {
             .await?
             .ok_or_else(|| anyhow!("No snapshot found"))?;
 
-        // 3. Copy files
-        // TODO: This assumes local storage. Update for ObjectStore.
-        let source_path = std::path::Path::new(self.storage.base_path());
-        let dest_path = &validated_dest;
-
-        if !dest_path.exists() {
-            std::fs::create_dir_all(dest_path)?;
+        // 3. Copy files - cloud or local path
+        if is_cloud_url(destination) {
+            self.backup_to_cloud(destination, &snapshot.snapshot_id)
+                .await?;
+        } else {
+            // Validate local destination path against sandbox
+            let validated_dest = self.validate_path(destination)?;
+            self.backup_to_local(&validated_dest, &snapshot.snapshot_id)
+                .await?;
         }
-
-        // Recursive copy (Only works if source is local)
-        if source_path.exists() {
-            Self::copy_dir_all(source_path, dest_path)?;
-        }
-
-        // 4. Copy schema
-        // SchemaManager now uses ObjectStore
-        // We need to read from store and write to local destination
-        // TODO: Access store from SchemaManager (need to expose it or add copy_to method)
-        // For now, let's skip schema backup if not local or implement using save() to new location?
-
-        let schema_manager = self.storage.schema_manager();
-        // Since we can't easily access the store here without exposing it,
-        // and we want to write to a specific destination...
-        // Let's manually save current schema to destination/catalog/schema.json
-
-        let dest_catalog = dest_path.join("catalog");
-        if !dest_catalog.exists() {
-            std::fs::create_dir_all(&dest_catalog)?;
-        }
-
-        let schema_content = serde_json::to_string_pretty(&schema_manager.schema())?;
-        std::fs::write(dest_catalog.join("schema.json"), schema_content)?;
 
         let mut res = HashMap::new();
         res.insert(
@@ -2484,6 +2463,80 @@ impl Executor {
             Value::String(snapshot.snapshot_id),
         );
         Ok(vec![res])
+    }
+
+    /// Backs up database to a local filesystem destination.
+    async fn backup_to_local(&self, dest_path: &std::path::Path, _snapshot_id: &str) -> Result<()> {
+        let source_path = std::path::Path::new(self.storage.base_path());
+
+        if !dest_path.exists() {
+            std::fs::create_dir_all(dest_path)?;
+        }
+
+        // Recursive copy (local to local)
+        if source_path.exists() {
+            Self::copy_dir_all(source_path, dest_path)?;
+        }
+
+        // Copy schema to destination/catalog/schema.json
+        let schema_manager = self.storage.schema_manager();
+        let dest_catalog = dest_path.join("catalog");
+        if !dest_catalog.exists() {
+            std::fs::create_dir_all(&dest_catalog)?;
+        }
+
+        let schema_content = serde_json::to_string_pretty(&schema_manager.schema())?;
+        std::fs::write(dest_catalog.join("schema.json"), schema_content)?;
+
+        Ok(())
+    }
+
+    /// Backs up database to a cloud storage destination.
+    ///
+    /// Streams data from source to destination, supporting cross-cloud backups.
+    async fn backup_to_cloud(&self, dest_url: &str, _snapshot_id: &str) -> Result<()> {
+        use object_store::ObjectStore;
+        use object_store::local::LocalFileSystem;
+        use object_store::path::Path as ObjPath;
+
+        let (dest_store, dest_prefix) = build_store_from_url(dest_url)?;
+        let source_path = std::path::Path::new(self.storage.base_path());
+
+        // Create local store for source, coerced to dyn ObjectStore
+        let src_store: Arc<dyn ObjectStore> =
+            Arc::new(LocalFileSystem::new_with_prefix(source_path)?);
+
+        // Copy catalog/ directory
+        let catalog_src = ObjPath::from("catalog");
+        let catalog_dst = if dest_prefix.as_ref().is_empty() {
+            ObjPath::from("catalog")
+        } else {
+            ObjPath::from(format!("{}/catalog", dest_prefix.as_ref()))
+        };
+        copy_store_prefix(&src_store, &dest_store, &catalog_src, &catalog_dst).await?;
+
+        // Copy storage/ directory
+        let storage_src = ObjPath::from("storage");
+        let storage_dst = if dest_prefix.as_ref().is_empty() {
+            ObjPath::from("storage")
+        } else {
+            ObjPath::from(format!("{}/storage", dest_prefix.as_ref()))
+        };
+        copy_store_prefix(&src_store, &dest_store, &storage_src, &storage_dst).await?;
+
+        // Copy schema.json
+        let schema_manager = self.storage.schema_manager();
+        let schema_content = serde_json::to_string_pretty(&schema_manager.schema())?;
+        let schema_path = if dest_prefix.as_ref().is_empty() {
+            ObjPath::from("schema.json")
+        } else {
+            ObjPath::from(format!("{}/schema.json", dest_prefix.as_ref()))
+        };
+        dest_store
+            .put(&schema_path, bytes::Bytes::from(schema_content).into())
+            .await?;
+
+        Ok(())
     }
 
     /// Maximum directory depth for backup operations.
@@ -2720,6 +2773,9 @@ impl Executor {
         Ok(vec![res])
     }
 
+    /// Imports data from Parquet file to a label or edge type.
+    ///
+    /// Supports local filesystem and cloud URLs (s3://, gs://, az://).
     pub(crate) async fn execute_parquet_import(
         &self,
         target: &str,
@@ -2727,9 +2783,6 @@ impl Executor {
         options: &HashMap<String, Value>,
         _prop_manager: &PropertyManager,
     ) -> Result<Vec<HashMap<String, Value>>> {
-        // Validate source path against sandbox
-        let validated_source = self.validate_path(source)?;
-
         let writer_lock = self
             .writer
             .as_ref()
@@ -2745,10 +2798,18 @@ impl Executor {
             return Err(anyhow!("Target '{}' not found in schema", target));
         }
 
-        // 2. Open Parquet
-        let file = std::fs::File::open(&validated_source)?;
-        let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)?;
-        let mut reader = builder.build()?;
+        // 2. Open Parquet - support both local and cloud URLs
+        let reader = if is_cloud_url(source) {
+            self.open_parquet_from_cloud(source).await?
+        } else {
+            // Validate local source path against sandbox
+            let validated_source = self.validate_path(source)?;
+            let file = std::fs::File::open(&validated_source)?;
+            let builder =
+                parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)?;
+            builder.build()?
+        };
+        let mut reader = reader;
 
         let mut count = 0;
         let mut writer = writer_lock.write().await;
@@ -2838,6 +2899,27 @@ impl Executor {
         let mut res = HashMap::new();
         res.insert("count".to_string(), json!(count));
         Ok(vec![res])
+    }
+
+    /// Opens a Parquet file from a cloud URL.
+    ///
+    /// Downloads the file to memory and creates a Parquet reader.
+    async fn open_parquet_from_cloud(
+        &self,
+        source_url: &str,
+    ) -> Result<parquet::arrow::arrow_reader::ParquetRecordBatchReader> {
+        use object_store::ObjectStore;
+
+        let (store, path) = build_store_from_url(source_url)?;
+
+        // Download file contents
+        let bytes = store.get(&path).await?.bytes().await?;
+
+        // Create a Parquet reader from the bytes
+        let reader = bytes::Bytes::from(bytes.to_vec());
+        let builder =
+            parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(reader)?;
+        Ok(builder.build()?)
     }
 
     pub(crate) async fn scan_edge_type(
@@ -3623,17 +3705,17 @@ impl Executor {
         Ok(vec![res])
     }
 
+    /// Exports data to Parquet format.
+    ///
+    /// Supports local filesystem and cloud URLs (s3://, gs://, az://).
     pub(crate) async fn execute_parquet_export(
         &self,
         target: &str,
-        source: &str,
+        destination: &str,
         _options: &HashMap<String, Value>,
         prop_manager: &PropertyManager,
         ctx: Option<&QueryContext>,
     ) -> Result<Vec<HashMap<String, Value>>> {
-        // Validate destination path against sandbox
-        let validated_dest = self.validate_path(source)?;
-
         let schema_manager = self.storage.schema_manager();
         let schema = schema_manager.schema();
         let label_meta = schema.labels.get(target);
@@ -3682,7 +3764,7 @@ impl Executor {
                     .await?
                     .unwrap_or_default();
 
-                props.insert("eid".to_string(), json!(eid.as_u64())); // schema uses 'eid', not '_eid'? Check EdgeDataset
+                props.insert("eid".to_string(), json!(eid.as_u64()));
                 props.insert("src_vid".to_string(), json!(src.as_u64()));
                 props.insert("dst_vid".to_string(), json!(dst.as_u64()));
                 props.insert("_deleted".to_string(), Value::Bool(false));
@@ -3691,20 +3773,63 @@ impl Executor {
             }
         }
 
-        let file = std::fs::File::create(&validated_dest)?;
-        let mut writer = parquet::arrow::ArrowWriter::try_new(file, arrow_schema.clone(), None)?;
+        // Write to cloud or local file
+        if is_cloud_url(destination) {
+            self.write_parquet_to_cloud(destination, &rows, &arrow_schema)
+                .await?;
+        } else {
+            // Validate local destination path against sandbox
+            let validated_dest = self.validate_path(destination)?;
+            let file = std::fs::File::create(&validated_dest)?;
+            let mut writer =
+                parquet::arrow::ArrowWriter::try_new(file, arrow_schema.clone(), None)?;
 
-        // Write all in one batch for now (simplification)
-        if !rows.is_empty() {
-            let batch = self.rows_to_batch(&rows, &arrow_schema)?;
-            writer.write(&batch)?;
+            // Write all in one batch for now (simplification)
+            if !rows.is_empty() {
+                let batch = self.rows_to_batch(&rows, &arrow_schema)?;
+                writer.write(&batch)?;
+            }
+
+            writer.close()?;
         }
-
-        writer.close()?;
 
         let mut res = HashMap::new();
         res.insert("count".to_string(), json!(rows.len()));
         Ok(vec![res])
+    }
+
+    /// Writes Parquet data to a cloud storage destination.
+    async fn write_parquet_to_cloud(
+        &self,
+        dest_url: &str,
+        rows: &[HashMap<String, Value>],
+        arrow_schema: &arrow_schema::Schema,
+    ) -> Result<()> {
+        use object_store::ObjectStore;
+
+        let (store, path) = build_store_from_url(dest_url)?;
+
+        // Write to an in-memory buffer
+        let mut buffer = Vec::new();
+        {
+            let mut writer = parquet::arrow::ArrowWriter::try_new(
+                &mut buffer,
+                Arc::new(arrow_schema.clone()),
+                None,
+            )?;
+
+            if !rows.is_empty() {
+                let batch = self.rows_to_batch(rows, arrow_schema)?;
+                writer.write(&batch)?;
+            }
+
+            writer.close()?;
+        }
+
+        // Upload to cloud storage
+        store.put(&path, bytes::Bytes::from(buffer).into()).await?;
+
+        Ok(())
     }
 
     pub(crate) fn rows_to_batch(
