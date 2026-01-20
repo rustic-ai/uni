@@ -34,6 +34,13 @@ Best practices for modeling your data as a property graph.
 
 <div class="feature-card">
 
+### [Pydantic OGM](pydantic-ogm.md)
+Type-safe Python models with automatic schema generation.
+
+</div>
+
+<div class="feature-card">
+
 ### [Performance Tuning](performance-tuning.md)
 Optimization strategies for queries, indexes, and storage.
 

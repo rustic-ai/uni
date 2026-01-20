@@ -13,6 +13,20 @@ Programmatic access to Uni from Rust applications.
 
 <div class="feature-card">
 
+### [Python API](python-api.md)
+Python bindings for direct database access.
+
+</div>
+
+<div class="feature-card">
+
+### [Pydantic OGM](pydantic-ogm.md)
+Type-safe Python models with Pydantic validation.
+
+</div>
+
+<div class="feature-card">
+
 ### [REST API](rest-api.md)
 HTTP API reference for remote query execution and monitoring.
 

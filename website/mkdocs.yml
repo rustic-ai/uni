@@ -28,6 +28,7 @@ nav:
       - Vector Search: guides/vector-search.md
       - Data Ingestion: guides/data-ingestion.md
       - Schema Design: guides/schema-design.md
+      - Pydantic OGM: guides/pydantic-ogm.md
       - Performance Tuning: guides/performance-tuning.md
   - Use Cases:
       - Overview: use-cases/index.md
@@ -43,6 +44,12 @@ nav:
           - RAG: examples/python/rag.ipynb
           - Fraud Detection: examples/python/fraud_detection.ipynb
           - Sales Analytics: examples/python/sales_analytics.ipynb
+      - Pydantic OGM:
+          - Supply Chain: examples/pydantic/supply_chain.ipynb
+          - Recommendation: examples/pydantic/recommendation.ipynb
+          - RAG: examples/pydantic/rag.ipynb
+          - Fraud Detection: examples/pydantic/fraud_detection.ipynb
+          - Sales Analytics: examples/pydantic/sales_analytics.ipynb
       - Rust:
           - Supply Chain: examples/rust/supply_chain.ipynb
           - Recommendation: examples/rust/recommendation.ipynb
@@ -61,6 +68,7 @@ nav:
       - Overview: reference/index.md
       - Rust API: reference/rust-api.md
       - Python API: reference/python-api.md
+      - Pydantic OGM: reference/pydantic-ogm.md
       - REST API: reference/rest-api.md
       - Configuration: reference/configuration.md
       - Troubleshooting: reference/troubleshooting.md
