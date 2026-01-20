@@ -1,15 +1,14 @@
 # Identity Model
 
-Uni uses a sophisticated identity system to balance performance, flexibility, and distributed computing requirements. This document explains the three identity types and their roles.
+Uni uses a dual-identity system to balance performance and distributed computing requirements. This document explains the two identity types and their roles.
 
 ## Overview
 
-Every entity in Uni has multiple identifiers serving different purposes:
+Every entity in Uni has two primary identifiers:
 
 | Identity | Bits | Purpose | Locality |
 |----------|------|---------|----------|
 | **VID/EID** | 64 | Internal array indexing | Local to database |
-| **ext_id** | Variable | User-provided external ID | User-defined |
 | **UniId** | 256 | Content-addressed provenance | Global / distributed |
 
 ```
@@ -17,19 +16,13 @@ Every entity in Uni has multiple identifiers serving different purposes:
 │                         VERTEX IDENTITY STACK                               │
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                    User-Facing (ext_id)                              │   │
-│  │                    "paper_abc123"                                    │   │
-│  │                    Human-readable, stable across imports             │   │
-│  └───────────────────────────────┬─────────────────────────────────────┘   │
-│                                  │ resolves to                             │
-│  ┌───────────────────────────────▼─────────────────────────────────────┐   │
 │  │                    Internal (VID)                                    │   │
 │  │                    0x0001_0000_0000_002A                             │   │
 │  │                    Fast array indexing, label-encoded                │   │
 │  └───────────────────────────────┬─────────────────────────────────────┘   │
 │                                  │ content-hashes to                       │
 │  ┌───────────────────────────────▼─────────────────────────────────────┐   │
-│  │                    Provenance (UniId)                             │   │
+│  │                    Provenance (UniId)                                │   │
 │  │                    bafkreihdwdcefgh4dqkjv67uzcmw7o...               │   │
 │  │                    Content-addressed, CRDT-compatible                │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
@@ -79,7 +72,7 @@ assert_eq!(vid.local_offset(), 42);
 assert_eq!(vid.as_u64(), 0x0001_0000_0000_002A);
 
 // Parse from u64
-let vid = Vid::from_u64(0x0001_0000_0000_002A);
+let vid = Vid::from(0x0001_0000_0000_002A_u64);
 ```
 
 ### Why This Design?
@@ -129,48 +122,6 @@ let eid = Eid::new(2, 21);  // type_id=2 (CITES), offset=21
 
 assert_eq!(eid.type_id(), 2);
 assert_eq!(eid.local_offset(), 21);
-```
-
----
-
-## External ID (ext_id)
-
-The external ID is a user-provided string identifier for human readability.
-
-### Characteristics
-
-| Property | Description |
-|----------|-------------|
-| Type | UTF-8 String |
-| Uniqueness | Unique within a label |
-| Mutability | Immutable after creation |
-| Indexing | Automatically indexed for lookups |
-
-### Usage
-
-```cypher
-// Create with external ID
-CREATE (p:Paper {id: "arxiv:2106.09685", title: "LoRA"})
-
-// Query by external ID
-MATCH (p:Paper {id: "arxiv:2106.09685"})
-RETURN p.title
-```
-
-### Resolution
-
-External IDs are resolved to VIDs at query time:
-
-```
-ext_id "arxiv:2106.09685"
-         │
-         ▼
-    ┌─────────────────┐
-    │  ext_id Index   │  (BTree index on ext_id column)
-    └────────┬────────┘
-             │
-             ▼
-    VID 0x0001_0000_0000_002A
 ```
 
 ---
@@ -244,17 +195,6 @@ println!("{}", uid.to_multibase());  // bafkrei...
 
 ## ID Resolution
 
-### VID Lookup by ext_id
-
-```cypher
-MATCH (p:Paper {id: "arxiv:2106.09685"})
-```
-
-Resolution path:
-1. Parse pattern → extract ext_id value
-2. Query ext_id index → get VID
-3. Load vertex data using VID offset
-
 ### VID Lookup by UniId
 
 ```cypher
@@ -293,33 +233,34 @@ pub enum Direction {
 
 ## ID Allocation
 
-IDs are allocated by the `IdAllocator`:
+IDs are allocated by the `IdAllocator`, which is backed by the object store for durability:
 
 ```rust
 pub struct IdAllocator {
-    label_counters: DashMap<u16, AtomicU64>,
-    edge_type_counters: DashMap<u16, AtomicU64>,
+    path: PathBuf,
+    store: Arc<dyn ObjectStore>,
+    state: Arc<Mutex<AllocatorState>>,
+    batch_size: usize,  // Pre-allocate IDs in batches
 }
 
 impl IdAllocator {
-    pub fn allocate_vid(&self, label_id: u16) -> Vid {
-        let offset = self.label_counters
-            .entry(label_id)
-            .or_insert(AtomicU64::new(0))
-            .fetch_add(1, Ordering::SeqCst);
-        Vid::new(label_id, offset)
-    }
+    /// Allocate a new VID for a label (async, object-store backed)
+    pub async fn allocate_vid(&self, label_id: u16) -> Result<Vid>;
 
-    pub fn allocate_eid(&self, type_id: u16) -> Eid {
-        // Similar for edges
-    }
+    /// Allocate a new EID for an edge type
+    pub async fn allocate_eid(&self, type_id: u16) -> Result<Eid>;
+
+    /// Persist current state to object store
+    pub async fn persist(&self) -> Result<()>;
 }
 ```
 
 **Allocation Properties:**
-- Thread-safe via atomic operations
+- Object-store backed for durability (S3, GCS, local filesystem)
+- Async API with `Result<Vid>` return type
+- Batch allocation for performance (configurable `batch_size`)
+- Manifest-based persistence for recovery
 - Sequential within each label/type
-- Persisted on flush for recovery
 - Never reuses IDs (even after deletes)
 
 ---
@@ -339,29 +280,21 @@ indexes/uid_to_vid/{label}/index.lance
 | Lookup Type | Index | Complexity | Typical Latency |
 |-------------|-------|------------|-----------------|
 | VID direct | None | O(1) | ~10µs |
-| ext_id | BTree | O(log n) | ~100µs |
 | UniId | BTree | O(log n) | ~100µs |
+| Property lookup | Scalar Index | O(log n) | ~100µs |
 | Full scan | None | O(n) | Varies |
 
 ---
 
 ## Best Practices
 
-### Choosing External IDs
-
-```
-✓ Good: "user_12345", "arxiv:2106.09685", "isbn:978-0134685991"
-✗ Bad: Sequential integers (use VID instead), UUIDs (use UniId)
-```
-
 ### When to Use Each ID
 
 | Use Case | Recommended ID |
 |----------|----------------|
 | Internal operations | VID |
-| API responses | ext_id |
 | Cross-system sync | UniId |
-| Human debugging | ext_id |
+| Provenance tracking | UniId |
 | Array indexing | VID offset |
 
 ---

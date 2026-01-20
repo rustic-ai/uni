@@ -40,7 +40,6 @@ Vertices represent entities in your domain. Each vertex has:
 | **VID** | Internal 64-bit identifier | `0x0001_0000_0000_002A` |
 | **Label(s)** | Type classification | `:Paper`, `:Author`, `:Venue` |
 | **Properties** | Key-value attributes | `{title: "...", year: 2023}` |
-| **External ID** | User-provided identifier | `"paper_abc123"` |
 
 ### Labels
 
@@ -382,7 +381,6 @@ Index specific paths within JSON documents:
 |---------|------|---------|---------|
 | **VID** | 64 | Internal vertex identifier | `0x0001_0000_0000_002A` |
 | **EID** | 64 | Internal edge identifier | `0x0002_0000_0000_0015` |
-| **ext_id** | String | User-provided external ID | `"paper_abc123"` |
 | **UniId** | 256 | Content-addressed hash | `bafkrei...` |
 
 [Learn more about Identity Model →](identity.md)

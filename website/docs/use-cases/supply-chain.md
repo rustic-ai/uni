@@ -59,7 +59,7 @@ We enable **Document Mode** for `Part` to store varied technical specifications.
       "type": "Scalar",
       "name": "json_spec_voltage",
       "label": "Part",
-      "properties": ["$.specs.voltage"], // JSON Path Indexing (Planned feature)
+      "properties": ["$.specs.voltage"], // JSON Path Indexing
       "index_type": "BTree"
     }
   ]

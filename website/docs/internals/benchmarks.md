@@ -530,7 +530,7 @@ open target/criterion/report/index.html
 
 ```rust
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
-use uni::prelude::*;
+use uni::*;
 
 fn benchmark_traversal(c: &mut Criterion) {
     let storage = setup_test_storage();
@@ -593,21 +593,20 @@ cargo flamegraph --bench storage_bench -- --bench
 
 ```rust
 // Optimized for throughput
-let config = StorageConfig {
+let config = UniConfig {
     batch_size: 8192,
-    adjacency_cache_size: 2_000_000,
-    property_cache_size: 500_000,
-    max_l0_size: 256 * 1024 * 1024,  // 256 MB
-    wal_sync_mode: WalSyncMode::Periodic { interval_ms: 100 },
+    cache_size: 2 * 1024 * 1024 * 1024,  // 2 GB
+    auto_flush_threshold: 100_000,
+    ..Default::default()
 };
 
 // Optimized for latency
-let config = StorageConfig {
+let config = UniConfig {
     batch_size: 2048,
-    adjacency_cache_size: 5_000_000,
-    property_cache_size: 1_000_000,
-    max_l0_size: 64 * 1024 * 1024,  // 64 MB
-    wal_sync_mode: WalSyncMode::Sync,
+    cache_size: 4 * 1024 * 1024 * 1024,  // 4 GB
+    auto_flush_threshold: 10_000,
+    wal_enabled: true,
+    ..Default::default()
 };
 ```
 

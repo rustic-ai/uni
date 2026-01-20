@@ -46,7 +46,7 @@ Uni's internals are organized into four major subsystems:
 
 ### Runtime
 
-1. **L0 Buffer** — In-memory gryf graph for mutations
+1. **L0 Buffer** — In-memory SimpleGraph graph for mutations
 2. **CSR Cache** — Compressed adjacency for O(1) traversal
 3. **Property Manager** — Lazy loading from Lance
 
@@ -68,7 +68,7 @@ Uni's internals are organized into four major subsystems:
 |----------|-----------|
 | Vectorized execution | 100-500x faster than row-at-a-time |
 | Lance for storage | Native vector indexes + versioning |
-| gryf for in-memory | Fast graph algorithms in Rust |
+| SimpleGraph for in-memory | Fast graph algorithms in Rust |
 | Single-writer model | Simplicity over distributed complexity |
 
 ## Next Steps

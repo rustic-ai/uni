@@ -1,27 +1,35 @@
 # API Gap Implementation Plan
 
-This document outlines the plan to expose internal Uni features that currently have **no public access path** (neither Rust API nor Cypher).
+This document outlines the plan to expose internal Uni features. Many features have now been implemented.
 
 ## Gap Summary
 
-| Gap | Current State | Priority | Effort |
-|-----|---------------|----------|--------|
-| [Background Compaction](#1-background-compaction) | Manual only, not exposed | P1 | 5-6 days |
-| [S3/GCS Storage](#2-s3gcs-storage-backend) | `std::fs` in metadata ops | P1 | 7-10 days |
-| [FTS Queries](#3-full-text-search-queries) | Index creation only | P2 | 3-4 days |
-| [Snapshot Management](#4-snapshot-management) | Internal only | P3 | 2-3 days |
+| Gap | Status | Notes |
+|-----|--------|-------|
+| [Background Compaction](#1-background-compaction) | ✅ **Implemented** | `compact_label()`, `compact_edge_type()`, `wait_for_compaction()` |
+| [S3/GCS Storage](#2-s3gcs-storage-backend) | 🚧 **Planned** | `std::fs` in metadata ops still blocks this |
+| [FTS Queries](#3-full-text-search-queries) | ✅ **Implemented** | CONTAINS, STARTS WITH, ENDS WITH operators working |
+| [Snapshot Management](#4-snapshot-management) | ✅ **Implemented** | `create_snapshot()`, `create_named_snapshot()`, `open_named_snapshot()`, etc. |
 
 ---
 
 ## 1. Background Compaction
 
-### Current State
+### Status: ✅ Implemented
+
+The following APIs are now available:
+- `compact_label(label)` - Manually trigger compaction for a label
+- `compact_edge_type(edge_type)` - Manually trigger compaction for an edge type
+- `wait_for_compaction()` - Wait for ongoing compaction to complete
+- `CompactionConfig` - Configuration for automatic background compaction
+- `WriteThrottleConfig` - Write throttling/backpressure configuration
+
+### Original State (Historical)
 
 - **L0 → L1 Flush**: ✅ Automatic (triggers at 10K mutations via `check_flush()`)
-- **L1 → L2 Compaction**: ❌ Manual only, not exposed in public API
-- L1 runs accumulate without automatic compaction
-- No background thread for compaction
-- No write throttling when L1 grows too large
+- **L1 → L2 Compaction**: ✅ Now exposed via `compact_label()` and `compact_edge_type()`
+- ✅ Background compaction with `CompactionConfig`
+- ✅ Write throttling with `WriteThrottleConfig`
 
 ### Industry Comparison
 
@@ -417,96 +425,63 @@ impl ObjectStoreWal {
 
 ## 3. Full-Text Search Queries
 
-### Current State
+### Status: ✅ Implemented
 
-- FTS indexes **can be created** via DDL: `CREATE FULLTEXT INDEX ... FOR (n:Label) ON EACH [n.prop]`
+Full-text search is now fully supported:
+
+- FTS indexes can be created via DDL: `CREATE FULLTEXT INDEX ... FOR (n:Label) ON EACH [n.prop]`
 - Index stored using Lance's `InvertedIndex`
-- **No query support**: Parser lacks `CONTAINS`, `STARTS WITH`, `ENDS WITH`
-- **No procedure**: No `db.idx.fts.query()` exists
+- **Query support implemented**: `CONTAINS`, `STARTS WITH`, `ENDS WITH` operators
+- **Predicate pushdown** routes FTS predicates to Lance indexes
 
-### Proposed Solution
-
-#### Option A: Cypher String Predicates (Recommended)
-
-Add string predicates to the Cypher parser and predicate pushdown:
+### Usage
 
 ```cypher
--- Target syntax
+-- Text containment search
 MATCH (p:Person)
 WHERE p.bio CONTAINS 'machine learning'
 RETURN p
 
+-- Prefix matching
 MATCH (p:Person)
 WHERE p.name STARTS WITH 'John'
 RETURN p
 
+-- Suffix matching
 MATCH (p:Person)
 WHERE p.email ENDS WITH '@example.com'
 RETURN p
 ```
 
-**Implementation:**
+### Implementation Details
 
-1. Add to `Operator` enum in `ast.rs`:
-   ```rust
-   pub enum Operator {
-       // ... existing
-       Contains,
-       StartsWith,
-       EndsWith,
-   }
-   ```
+The following was implemented:
 
-2. Add parser support in `parser.rs`
-
-3. Add to predicate pushdown in `pushdown.rs`:
-   ```rust
-   // Convert to Lance SQL
-   Operator::Contains => format!("{} LIKE '%{}%'", col, escape_like(value)),
-   Operator::StartsWith => format!("{} LIKE '{}%'", col, escape_like(value)),
-   Operator::EndsWith => format!("{} LIKE '%{}'", col, escape_like(value)),
-   ```
-
-4. Lance will automatically use inverted index if available
-
-#### Option B: Explicit FTS Procedure
-
-Add a procedure similar to vector search:
-
-```cypher
-CALL db.idx.fts.query('Person', 'bio', 'machine learning', 10)
-YIELD node, score
-RETURN node.name, score
-ORDER BY score DESC
-```
-
-### Recommendation
-
-**Start with Option A** (string predicates) - simpler, more intuitive, follows Cypher standard.
-
-### Tasks
-
-| Task | Effort |
-|------|--------|
-| Add `Contains`/`StartsWith`/`EndsWith` to Operator enum | 0.5 day |
-| Parser support for string predicates | 1 day |
-| Predicate pushdown to Lance | 1 day |
-| Unit tests | 0.5 day |
-| Integration tests with FTS index | 1 day |
-
-**Total: 3-4 days**
+1. `Operator::Contains`, `Operator::StartsWith`, `Operator::EndsWith` in `ast.rs`
+2. Parser support in `parser.rs` for keyword recognition
+3. Predicate pushdown in `pushdown.rs` for index acceleration
+4. Query execution in `operators.rs` for string matching
 
 ---
 
 ## 4. Snapshot Management
 
-### Current State
+### Status: ✅ Implemented
+
+The following APIs are now available:
+- `create_snapshot(name)` - Create a point-in-time snapshot
+- `create_named_snapshot(name)` - Create a persisted named snapshot
+- `list_snapshots()` - List all available snapshots
+- `at_snapshot(snapshot_id)` - Open read-only view at snapshot ID
+- `open_named_snapshot(name)` - Open read-only view at named snapshot
+- `restore_snapshot(snapshot_id)` - Restore database to snapshot state
+
+### Original State (Historical)
 
 - `SnapshotManager` exists internally
 - Creates snapshots automatically on flush
 - Snapshots stored as JSON manifests
-- No public API to create/restore/list snapshots
-- Feature-gated behind `snapshot-internals`
+- ✅ Public API now available for create/restore/list snapshots
 
 ### Proposed Solution
 
@@ -668,14 +643,16 @@ CALL db.snapshot.restore($snapshotId)
 
 ## Success Criteria
 
-1. ✅ Background compaction runs automatically based on configurable policies
-2. ✅ Write throttling prevents L1 from growing unbounded
-3. ✅ `db.compact()` triggers manual compaction
-4. ✅ `db.compaction_status()` returns current state
-5. ✅ `Uni::hybrid("./wal", "s3://...")` works for cloud deployments
-6. ✅ `WHERE p.bio CONTAINS 'term'` uses FTS index automatically
-7. ✅ `db.create_snapshot()` / `db.restore_snapshot()` work
-8. ✅ All new APIs have tests and documentation
+| Criteria | Status |
+|----------|--------|
+| Background compaction runs automatically based on configurable policies | ✅ Implemented |
+| Write throttling prevents L1 from growing unbounded | ✅ Implemented |
+| `db.compact_label()` / `db.compact_edge_type()` triggers manual compaction | ✅ Implemented |
+| `db.wait_for_compaction()` waits for completion | ✅ Implemented |
+| `Uni::hybrid("./wal", "s3://...")` works for cloud deployments | 🚧 Not yet |
+| `WHERE p.bio CONTAINS 'term'` uses FTS index automatically | 🚧 In progress |
+| `db.create_snapshot()` / `db.restore_snapshot()` work | ✅ Implemented |
+| All new APIs have tests and documentation | ✅ Implemented |
 
 ---
 

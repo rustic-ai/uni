@@ -28,7 +28,7 @@ Modern applications need more than one data model. Knowledge graphs require rela
 | **Graph Traversals** | Navigate billions of edges with O(1) adjacency lookups via CSR-cached topology |
 | **Vector Search** | Sub-2ms approximate nearest neighbor queries powered by Lance's HNSW indexes |
 | **Document Storage** | Store and query nested JSON with path-based indexing |
-| **Columnar Analytics** | DataFusion-powered aggregations with predicate pushdown to storage |
+| **Columnar Analytics** | Vectorized aggregations with predicate pushdown to storage |
 | **OpenCypher Queries** | Familiar graph query syntax with vectorized execution |
 
 ---
@@ -70,16 +70,22 @@ No complex distributed consensus. One writer, multiple readers, snapshot isolati
 ### Quick Example
 
 ```rust
-use uni::prelude::*;
+use uni::Uni;
 
-let db = UniDatabase::open("./my-graph")?;
-let results = db.query("
-    MATCH (user:User)-[:PURCHASED]->(product:Product)
-    WHERE vector_similarity(user.embedding, $query) > 0.85
-    RETURN product.name, COUNT(*) as purchases
-    ORDER BY purchases DESC
-    LIMIT 10
-")?;
+#[tokio::main]
+async fn main() -> Result<(), uni::UniError> {
+    let db = Uni::open("./my-graph").build().await?;
+    let results = db.query("
+        MATCH (user:User)-[:PURCHASED]->(product:Product)
+        CALL db.idx.vector.query('User', 'embedding', $query, 100)
+        YIELD node, distance
+        WHERE distance < 0.15
+        RETURN product.name, COUNT(*) as purchases
+        ORDER BY purchases DESC
+        LIMIT 10
+    ").await?;
+    Ok(())
+}
 ```
 
 ---
@@ -229,8 +235,8 @@ Uni leverages best-in-class Rust ecosystem crates:
 |-----------|------------|---------|
 | Storage | [Lance](https://lancedb.github.io/lance/) | Columnar format with native vector indexes |
 | Columnar | [Apache Arrow](https://arrow.apache.org/) | Zero-copy data representation |
-| Analytics | [DataFusion](https://datafusion.apache.org/) | SQL execution and optimization |
-| Graph Runtime | [gryf](https://github.com/pnevyk/gryf) | In-memory graph algorithms |
+| Analytics | Custom vectorized engine | Morsel-driven batch execution |
+| Graph Runtime | SimpleGraph (custom) | In-memory graph algorithms |
 | Object Store | [object_store](https://docs.rs/object_store) | S3/GCS/Azure abstraction |
 | Parsing | [sqlparser](https://github.com/sqlparser-rs/sqlparser-rs) | SQL/Cypher tokenization |
 | Embeddings | [FastEmbed](https://github.com/qdrant/fastembed) | Local embedding models |
@@ -253,18 +259,16 @@ Uni is under active development. Current status:
 | Variable-length paths (`*1..3`) | <span class="badge badge-new">Stable</span> |
 | MERGE / SET / DELETE | <span class="badge badge-new">Stable</span> |
 | UNION / UNION ALL | <span class="badge badge-new">Stable</span> |
-| WITH RECURSIVE (CTEs) | <span class="badge badge-new">Stable</span> |
-| EXPLAIN / PROFILE | <span class="badge badge-new">Stable</span> |
+| EXPLAIN | <span class="badge badge-new">Stable</span> |
 | BACKUP / VACUUM / CHECKPOINT | <span class="badge badge-new">Stable</span> |
 | CRDT properties | <span class="badge badge-new">Stable</span> |
-| Session Variables (`$session.*`) | <span class="badge badge-new">Stable</span> |
 | Bulk Loading (BulkWriter) | <span class="badge badge-new">Stable</span> |
 | Schema DDL Procedures | <span class="badge badge-new">Stable</span> |
 | Snapshot Readers | <span class="badge badge-new">Stable</span> |
 | Inverted Index (ANY IN) | <span class="badge badge-new">Stable</span> |
 | Temporal Queries (validAt) | <span class="badge badge-new">Stable</span> |
 | Composite Key Constraints | <span class="badge badge-new">Stable</span> |
-| Full-text search | <span class="badge badge-experimental">Planned</span> |
+| Full-text search (CONTAINS, STARTS WITH, ENDS WITH) | <span class="badge badge-new">Stable</span> |
 | Distributed mode | <span class="badge badge-deprecated">Future</span> |
 
 See **[Cypher Querying Guide](guides/cypher-querying.md)** for detailed feature documentation.

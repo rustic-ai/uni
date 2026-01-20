@@ -53,7 +53,7 @@ MATCH (n)
 // Node with label
 MATCH (p:Paper)
 
-// Node with multiple labels (future)
+// Node with multiple labels
 MATCH (n:Paper:Preprint)
 
 // Node with variable binding
@@ -718,63 +718,45 @@ uni query "MATCH (p:Paper) WHERE p.year = \$year RETURN p" \
 
 ## Session Variables
 
-Session variables provide scoped context that's automatically available in all queries within a session. This is ideal for multi-tenant applications.
+Session variables (`$session.*`) provide scoped context for multi-tenant queries. They're set when creating a session and accessible in all queries within that session.
 
-### Creating a Session
+=== "Rust"
 
-```rust
-// Rust API
-let session = db.session()
-    .set("tenant_id", "acme-corp")
-    .set("user_id", "user-123")
-    .set("granted_tags", vec!["public", "team:eng"])
-    .build();
-```
+    ```rust
+    // Create session with tenant context
+    let session = db.session()
+        .set("tenant_id", "acme-corp")
+        .set("user_id", "user-123")
+        .build();
 
-### Using Session Variables
+    // All queries have access to $session.* variables
+    let results = session.query(r#"
+        MATCH (d:Document)
+        WHERE d.tenant_id = $session.tenant_id
+        RETURN d.title AS title
+    "#).await?;
+    ```
 
-Access session variables with the `$session.` prefix:
+=== "Python"
 
-```cypher
-// Automatic tenant filtering
-MATCH (d:Document)
-WHERE d.tenant_id = $session.tenant_id
-RETURN d.title
+    ```python
+    # Create session with tenant context
+    session = (
+        db.session()
+        .set("tenant_id", "acme-corp")
+        .set("user_id", "user-123")
+        .build()
+    )
 
-// Multiple session variables
-MATCH (e:Event)
-WHERE e.tenant_id = $session.tenant_id
-  AND e.created_by = $session.user_id
-RETURN e
+    # All queries have access to $session.* variables
+    results = session.query("""
+        MATCH (d:Document)
+        WHERE d.tenant_id = $session.tenant_id
+        RETURN d.title AS title
+    """)
+    ```
 
-// Combining session variables with query parameters
-MATCH (d:Document)
-WHERE d.tenant_id = $session.tenant_id
-  AND d.status = $status
-RETURN d
-```
-
-### Session Variable Benefits
-
-| Benefit | Description |
-|---------|-------------|
-| **Reduced boilerplate** | No need to pass tenant_id to every query |
-| **Security** | Variables are immutable after session creation |
-| **Consistency** | Same context applied to all queries in session |
-| **Multi-tenancy** | Natural pattern for SaaS applications |
-
-### Session Queries vs Regular Queries
-
-```rust
-// Without session (repetitive)
-db.query_with("MATCH (d:Document) WHERE d.tenant = $t RETURN d")
-    .param("t", "acme")
-    .fetch_all().await?;
-
-// With session (cleaner)
-let session = db.session().set("tenant", "acme").build();
-session.query("MATCH (d:Document) WHERE d.tenant = $session.tenant RETURN d").await?;
-```
+Session variables use the `$session.property_name` syntax and are resolved at query execution time.
 
 ---
 
@@ -952,39 +934,31 @@ RETURN a.name AS name, 'highly_cited' AS category
 
 ## WITH RECURSIVE Clause
 
-Execute recursive queries using Common Table Expressions (CTEs).
-
-### Basic Recursive Query
+WITH RECURSIVE enables Common Table Expressions (CTEs) for complex recursive queries.
 
 ```cypher
-// Find all transitive citations (papers cited by cited papers)
+// Find all transitive citations (papers cited by papers cited by...)
 WITH RECURSIVE citation_chain AS (
-  // Base case: direct citations
-  MATCH (p:Paper {title: 'Root Paper'})-[:CITES]->(cited:Paper)
-  RETURN cited
-  UNION
-  // Recursive case: citations of citations
-  MATCH (c:citation_chain)-[:CITES]->(next:Paper)
-  RETURN next
+    -- Base case: direct citations
+    MATCH (start:Paper {title: 'Original Paper'})-[:CITES]->(cited:Paper)
+    RETURN cited, 1 AS depth
+
+    UNION
+
+    -- Recursive case: citations of citations
+    MATCH (prev)-[:CITES]->(cited:Paper)
+    WHERE prev IN citation_chain AND depth < 5
+    RETURN cited, depth + 1
 )
-MATCH (p:citation_chain)
-RETURN p.title
+SELECT cited.title, depth FROM citation_chain
 ```
 
-### Recursive Path Finding
-
-```cypher
-// Find all ancestors in a hierarchy
-WITH RECURSIVE ancestors AS (
-  MATCH (n:Category {name: 'Machine Learning'})
-  RETURN n
-  UNION
-  MATCH (a:ancestors)-[:PARENT]->(parent:Category)
-  RETURN parent
-)
-MATCH (a:ancestors)
-RETURN a.name AS category_hierarchy
-```
+!!! tip "Alternative: Variable-Length Paths"
+    For simpler recursive traversals, variable-length path patterns (`*1..N`) are often more concise:
+    ```cypher
+    MATCH (start:Paper {title: 'Original Paper'})-[:CITES*1..5]->(cited:Paper)
+    RETURN DISTINCT cited.title
+    ```
 
 ---
 
@@ -1040,57 +1014,45 @@ Total estimated cost: 137.5
 
 ## PROFILE Clause
 
-Execute the query with runtime statistics collection.
+PROFILE executes the query and returns runtime statistics alongside results.
 
-### Basic PROFILE
+=== "Rust"
 
-```cypher
-// Execute and collect statistics
-PROFILE MATCH (p:Paper)-[:CITES]->(cited:Paper)
-WHERE p.year > 2020
-RETURN cited.title, COUNT(*) AS citation_count
-ORDER BY citation_count DESC
-LIMIT 10
-```
+    ```rust
+    // Execute with profiling
+    let (results, profile) = db.profile(
+        "MATCH (p:Person) WHERE p.age > 25 RETURN p.name"
+    ).await?;
+
+    println!("Total time: {}ms", profile.total_time_ms);
+    println!("Rows scanned: {}", profile.rows_scanned);
+    println!("Peak memory: {} bytes", profile.peak_memory_bytes);
+
+    // Per-operator statistics
+    for op in &profile.operators {
+        println!("{}: {}ms, {} rows", op.name, op.time_ms, op.rows_produced);
+    }
+    ```
+
+=== "Python"
+
+    ```python
+    # Execute with profiling
+    results, profile = db.profile(
+        "MATCH (p:Person) WHERE p.age > 25 RETURN p.name AS name"
+    )
+
+    print(f"Total time: {profile['total_time_ms']}ms")
+    print(f"Peak memory: {profile['peak_memory_bytes']} bytes")
+    ```
 
 ### PROFILE Output
 
-PROFILE returns detailed execution metrics:
-
-```
-Execution Profile:
-├─ Scan: Paper
-│  ├─ Actual rows: 423
-│  ├─ Time: 12.3ms
-│  └─ Index hits: 423
-├─ Expand: CITES
-│  ├─ Actual paths: 1892
-│  └─ Time: 45.6ms
-└─ Project
-   ├─ Actual rows: 1892
-   └─ Time: 1.2ms
-
-Summary:
-  Total time: 59.1ms
-  Peak memory: 2.4MB
-  Rows returned: 1892
-```
-
-### Using PROFILE for Optimization
-
-```cypher
-// Compare two query approaches
-PROFILE MATCH (a:Author)-[:AUTHORED]->(p:Paper)
-WHERE a.name = 'Alice' AND p.year > 2020
-RETURN p.title
-
-// vs
-
-PROFILE MATCH (p:Paper)
-WHERE p.year > 2020
-MATCH (a:Author {name: 'Alice'})-[:AUTHORED]->(p)
-RETURN p.title
-```
+The profile includes:
+- **total_time_ms**: Total query execution time
+- **rows_scanned**: Number of rows read from storage
+- **peak_memory_bytes**: Maximum memory used during execution
+- **operators**: Per-operator breakdown with timing and row counts
 
 ---
 
@@ -1113,10 +1075,15 @@ MATCH (a:Paper)-[:CITES]->(b:Paper)-[:CITES]->(a)
 RETURN a.title, b.title
 ```
 
-### Shortest Path (Future)
+### Shortest Path
+
+The `shortestPath` function is partially supported with the following limitation:
+
+!!! warning "Limitation"
+    `shortestPath` only supports 1-hop patterns like `(a)-[:REL*]->(b)` for now. Multi-hop patterns with range specifiers (e.g., `*1..5`) are planned.
 
 ```cypher
-// Shortest path between two nodes
+// Supported: single relationship type with variable length
 MATCH path = shortestPath((a:Author {name: 'Alice'})-[:COAUTHOR*]-(b:Author {name: 'Bob'}))
 RETURN path
 ```
@@ -1604,29 +1571,39 @@ SET p.view_count = crdt.increment(p.view_count, 1)
 
 // Add to an ORSet
 MATCH (p:Paper {id: 'paper_001'})
-SET p.tags = crdt.add(p.tags, 'machine-learning')
+SET p.tags = crdt.orset_add(p.tags, 'machine-learning')
 
 // Remove from an ORSet
 MATCH (p:Paper {id: 'paper_001'})
-SET p.tags = crdt.remove(p.tags, 'deprecated-tag')
+SET p.tags = crdt.orset_remove(p.tags, 'deprecated-tag')
 
 // Update LWWMap
 MATCH (p:Paper {id: 'paper_001'})
-SET p.metadata = crdt.put(p.metadata, 'reviewed', true)
+SET p.metadata = crdt.map_put(p.metadata, 'reviewed', true)
 ```
 
 ### CRDT Functions
 
 | Function | CRDT Types | Description |
 |----------|------------|-------------|
+| `crdt.gcounter()` | GCounter | Create new counter |
 | `crdt.increment(counter, n)` | GCounter | Increment by n |
-| `crdt.add(set, elem)` | GSet, ORSet | Add element |
-| `crdt.remove(set, elem)` | ORSet | Remove element |
-| `crdt.set(register, value)` | LWWRegister | Set value |
-| `crdt.put(map, key, value)` | LWWMap | Put key-value |
-| `crdt.delete(map, key)` | LWWMap | Delete key |
-| `crdt.insert(rga, index, elem)` | Rga | Insert at position |
-| `crdt.deleteAt(rga, index)` | Rga | Delete at position |
+| `crdt.value(counter)` | GCounter | Get current value |
+| `crdt.gset()` | GSet | Create new grow-only set |
+| `crdt.gset_add(set, elem)` | GSet | Add element |
+| `crdt.orset()` | ORSet | Create new add-wins set |
+| `crdt.orset_add(set, elem)` | ORSet | Add element |
+| `crdt.orset_remove(set, elem)` | ORSet | Remove element |
+| `crdt.contains(set, elem)` | GSet, ORSet | Check membership |
+| `crdt.elements(set)` | GSet, ORSet | Get all elements |
+| `crdt.lww()` | LWWRegister | Create new register |
+| `crdt.lww_set(register, value)` | LWWRegister | Set value |
+| `crdt.lww_get(register)` | LWWRegister | Get current value |
+| `crdt.lww_map()` | LWWMap | Create new map |
+| `crdt.map_put(map, key, value)` | LWWMap | Put key-value |
+| `crdt.map_get(map, key)` | LWWMap | Get value by key |
+| `crdt.rga()` | Rga | Create new sequence |
+| `crdt.rga_to_list(rga)` | Rga | Convert to list |
 
 ### Distributed Sync
 
@@ -1676,10 +1653,7 @@ For detailed CRDT semantics and merge behavior, see [CRDT Types](../concepts/crd
 | SET / REMOVE | Stable |
 | DELETE / DETACH DELETE | Stable |
 | UNION / UNION ALL | Stable |
-| WITH RECURSIVE (CTEs) | Stable |
 | EXPLAIN (with index usage) | Stable |
-| PROFILE (runtime statistics) | Stable |
-| Session Variables (`$session.*`) | Stable |
 | Temporal Queries (`uni.validAt`, `VALID_AT`) | Stable |
 | Schema DDL (CREATE/ALTER/DROP LABEL) | Stable |
 | Schema DDL Procedures (`db.createLabel`, etc.) | Stable |
@@ -1691,8 +1665,13 @@ For detailed CRDT semantics and merge behavior, see [CRDT Types](../concepts/crd
 | Snapshots (create, list, restore) | Stable |
 | Schema Introspection (db.labels, db.indexes, etc.) | Stable |
 | Inverted Index (ANY IN pattern) | Stable |
-| OPTIONAL MATCH | Planned |
-| Subqueries | Planned |
+| OPTIONAL MATCH | Stable |
+| Subqueries (EXISTS, CALL) | Stable |
+| WITH RECURSIVE (CTEs) | Stable |
+| PROFILE (runtime statistics) | Stable |
+| Session Variables (`$session.*`) | Stable |
+| Multi-label Nodes | Stable |
+| Regular Expression Matching (`=~`) | Planned |
 
 ---
 

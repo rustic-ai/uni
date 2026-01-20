@@ -44,6 +44,7 @@ nav:
       - Configuration: reference/configuration.md
       - Feature Comparison: reference/feature-comparison.md
       - Troubleshooting: reference/troubleshooting.md
+      - Limitations: reference/limitations.md
       - Glossary: reference/glossary.md
   - API Docs:
       - Rust API (rustdoc): api/rust/uni/index.html
@@ -56,6 +57,8 @@ theme:
   # favicon: assets/images/favicon.png
   # logo: assets/images/logo.svg
   primary: custom
+  features:
+    - content.tabs.link
 
 extra_css:
   - assets/stylesheets/theme.css

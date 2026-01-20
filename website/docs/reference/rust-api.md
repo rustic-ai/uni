@@ -5,7 +5,7 @@ Uni provides a comprehensive Rust API for embedding the graph database directly 
 ## Quick Start
 
 ```rust
-use uni::prelude::*;
+use uni::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -52,7 +52,7 @@ impl Uni {
     pub fn config(&self) -> &UniConfig;
 
     /// Get current schema
-    pub fn current_schema(&self) -> Schema;
+    pub fn get_schema(&self) -> &SchemaManager;
 
     /// Flush uncommitted changes to storage
     pub async fn flush(&self) -> Result<()>;
@@ -112,6 +112,15 @@ impl Uni {
 
     /// Execute a mutation (CREATE, SET, DELETE, MERGE)
     pub async fn execute(&self, cypher: &str) -> Result<ExecuteResult>;
+
+    /// Execute query returning a cursor for streaming results
+    pub async fn query_cursor(&self, cypher: &str) -> Result<QueryCursor>;
+
+    /// Explain a query plan without executing it
+    pub async fn explain(&self, cypher: &str) -> Result<ExplainOutput>;
+
+    /// Profile a query execution with timing information
+    pub async fn profile(&self, cypher: &str) -> Result<(QueryResult, ProfileOutput)>;
 }
 
 // Simple query
@@ -143,8 +152,17 @@ impl<'a> QueryBuilder<'a> {
     /// Add multiple parameters
     pub fn params(self, params: HashMap<String, Value>) -> Self;
 
-    /// Execute and fetch all results
+    /// Set maximum execution time for this query
+    pub fn timeout(self, duration: Duration) -> Self;
+
+    /// Set maximum memory per query in bytes
+    pub fn max_memory(self, bytes: usize) -> Self;
+
+    /// Execute the query and fetch all results into memory
     pub async fn fetch_all(self) -> Result<QueryResult>;
+
+    /// Execute the query and return a cursor for streaming results
+    pub async fn query_cursor(self) -> Result<QueryCursor>;
 }
 
 // Example with multiple parameters
@@ -235,8 +253,197 @@ let results = session.query_with(
      RETURN d"
 )
     .param("status", "published")
-    .fetch_all()
+    .execute()
     .await?;
+```
+
+---
+
+## Schema Introspection
+
+Query schema metadata and check existence of labels and edge types.
+
+```rust
+impl Uni {
+    /// Check if a label exists in the schema
+    pub async fn label_exists(&self, name: &str) -> Result<bool>;
+
+    /// Check if an edge type exists in the schema
+    pub async fn edge_type_exists(&self, name: &str) -> Result<bool>;
+
+    /// Get all label names
+    pub async fn list_labels(&self) -> Result<Vec<String>>;
+
+    /// Get all edge type names
+    pub async fn list_edge_types(&self) -> Result<Vec<String>>;
+
+    /// Get detailed information about a label
+    pub async fn get_label_info(&self, name: &str) -> Result<Option<LabelInfo>>;
+}
+
+/// Detailed label information
+#[derive(Debug, Clone)]
+pub struct LabelInfo {
+    pub name: String,
+    pub is_document: bool,
+    pub count: usize,
+    pub properties: Vec<PropertyInfo>,
+    pub indexes: Vec<IndexInfo>,
+    pub constraints: Vec<ConstraintInfo>,
+}
+
+/// Property information
+#[derive(Debug, Clone)]
+pub struct PropertyInfo {
+    pub name: String,
+    pub data_type: String,
+    pub nullable: bool,
+    pub is_indexed: bool,
+}
+
+/// Index information
+#[derive(Debug, Clone)]
+pub struct IndexInfo {
+    pub name: String,
+    pub index_type: String,  // "VECTOR", "SCALAR", "FULLTEXT", "JSON_FTS"
+    pub properties: Vec<String>,
+    pub status: String,
+}
+```
+
+### Schema Introspection Example
+
+```rust
+// Check label existence before creating
+if !db.label_exists("Paper").await? {
+    db.schema()
+        .label("Paper")
+            .property("title", DataType::String)
+        .apply()
+        .await?;
+}
+
+// List all labels
+let labels = db.list_labels().await?;
+println!("Labels: {:?}", labels);
+
+// Get detailed label info
+if let Some(info) = db.get_label_info("Paper").await? {
+    println!("Label: {} ({} vertices)", info.name, info.count);
+    for prop in &info.properties {
+        println!("  - {} ({})", prop.name, prop.data_type);
+    }
+    for idx in &info.indexes {
+        println!("  Index: {} ({}) on {:?}", idx.name, idx.index_type, idx.properties);
+    }
+}
+```
+
+---
+
+## Compaction & Index Management
+
+Control compaction and monitor index rebuild operations.
+
+```rust
+impl Uni {
+    /// Manually trigger compaction for a specific label
+    /// Merges L1 files into larger files for improved read performance
+    pub async fn compact_label(&self, label: &str) -> Result<CompactionStats>;
+
+    /// Manually trigger compaction for a specific edge type
+    pub async fn compact_edge_type(&self, edge_type: &str) -> Result<CompactionStats>;
+
+    /// Wait for any ongoing compaction to complete
+    pub async fn wait_for_compaction(&self) -> Result<()>;
+
+    /// Force rebuild indexes for a specific label
+    /// If async_ is true, returns task ID for tracking; otherwise blocks until complete
+    pub async fn rebuild_indexes(&self, label: &str, async_: bool) -> Result<Option<String>>;
+
+    /// Get status of background index rebuild tasks
+    pub async fn index_rebuild_status(&self) -> Result<Vec<IndexRebuildTask>>;
+
+    /// Retry failed index rebuild tasks
+    pub async fn retry_index_rebuilds(&self) -> Result<Vec<String>>;
+
+    /// Check if an index is currently being rebuilt for a label
+    pub async fn is_index_building(&self, label: &str) -> Result<bool>;
+}
+
+/// Compaction statistics
+#[derive(Debug, Clone, Default)]
+pub struct CompactionStats {
+    pub files_compacted: usize,
+    pub rows_processed: usize,
+    pub bytes_written: usize,
+    pub duration: Duration,
+}
+
+/// Index rebuild task status
+#[derive(Debug, Clone)]
+pub struct IndexRebuildTask {
+    pub id: String,
+    pub label: String,
+    pub status: IndexRebuildStatus,
+    pub created_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum IndexRebuildStatus {
+    Pending,
+    InProgress,
+    Completed,
+    Failed,
+}
+```
+
+### Compaction Example
+
+```rust
+// Manually compact a label after bulk operations
+let stats = db.compact_label("Paper").await?;
+println!(
+    "Compacted {} files, {} rows in {:?}",
+    stats.files_compacted, stats.rows_processed, stats.duration
+);
+
+// Wait for background compaction
+db.wait_for_compaction().await?;
+```
+
+### Index Rebuild Example
+
+```rust
+// Rebuild indexes synchronously (blocks until complete)
+db.rebuild_indexes("Paper", false).await?;
+
+// Rebuild indexes asynchronously (returns immediately)
+let task_id = db.rebuild_indexes("Paper", true).await?;
+println!("Started index rebuild: {:?}", task_id);
+
+// Monitor rebuild status
+loop {
+    let tasks = db.index_rebuild_status().await?;
+    let building = tasks.iter().any(|t| matches!(t.status, IndexRebuildStatus::InProgress));
+    if !building {
+        break;
+    }
+    tokio::time::sleep(Duration::from_secs(1)).await;
+}
+
+// Check if specific label is building
+if db.is_index_building("Paper").await? {
+    println!("Index rebuild in progress...");
+}
+
+// Retry failed rebuilds
+let retried = db.retry_index_rebuilds().await?;
+if !retried.is_empty() {
+    println!("Retrying {} failed tasks", retried.len());
+}
 ```
 
 ---
@@ -376,13 +583,24 @@ Read-only access to historical database states.
 
 ```rust
 impl Uni {
+    /// Create a point-in-time snapshot (flushes current changes)
+    /// Returns the snapshot ID
+    pub async fn create_snapshot(&self, name: Option<&str>) -> Result<String>;
+
+    /// Create a persisted named snapshot that can be retrieved later
+    pub async fn create_named_snapshot(&self, name: &str) -> Result<String>;
+
     /// List all available snapshots
     pub async fn list_snapshots(&self) -> Result<Vec<SnapshotInfo>>;
 
-    /// Open a read-only view at a specific snapshot
+    /// Open a read-only view at a specific snapshot ID
     pub async fn at_snapshot(&self, snapshot_id: &str) -> Result<Uni>;
 
+    /// Open a read-only view at a named snapshot
+    pub async fn open_named_snapshot(&self, name: &str) -> Result<Uni>;
+
     /// Restore database to a snapshot state
+    /// Note: Requires restart or re-opening to fully take effect
     pub async fn restore_snapshot(&self, snapshot_id: &str) -> Result<()>;
 }
 
@@ -399,14 +617,18 @@ pub struct SnapshotInfo {
 ### Snapshot Example
 
 ```rust
+// Create a named snapshot before making changes
+let snapshot_id = db.create_named_snapshot("before_migration").await?;
+println!("Created snapshot: {}", snapshot_id);
+
 // List available snapshots
 let snapshots = db.list_snapshots().await?;
 for snap in &snapshots {
     println!("{}: {} ({})", snap.id, snap.name.as_deref().unwrap_or("-"), snap.created_at);
 }
 
-// Open a read-only view at a specific snapshot
-let historical = db.at_snapshot(&snapshots[0].id).await?;
+// Open a read-only view at a named snapshot
+let historical = db.open_named_snapshot("before_migration").await?;
 
 // Query historical data
 let old_results = historical.query("MATCH (n) RETURN count(n) AS c").await?;
@@ -415,6 +637,9 @@ println!("Count at snapshot: {}", old_results[0].get::<i64>("c")?);
 // Writes fail on snapshot readers
 let result = historical.execute("CREATE (n:Test)").await;
 assert!(result.is_err()); // WriteOnReadOnly error
+
+// Or open by snapshot ID
+let historical2 = db.at_snapshot(&snapshots[0].id).await?;
 ```
 
 ### Snapshot Procedures
@@ -444,10 +669,9 @@ impl Uni {
     pub async fn begin(&self) -> Result<Transaction<'_>>;
 
     /// Run a closure within a transaction
-    pub async fn transaction<F, Fut, T>(&self, f: F) -> Result<T>
+    pub async fn transaction<'a, F, T>(&'a self, f: F) -> Result<T>
     where
-        F: FnOnce(Transaction<'_>) -> Fut,
-        Fut: Future<Output = Result<T>>;
+        F: for<'b> FnOnce(&'b mut Transaction<'a>) -> BoxFuture<'b, Result<T>>;
 }
 
 /// Active transaction handle
@@ -1077,7 +1301,7 @@ let results = db.query_with(
      ORDER BY distance"
 )
     .param("vec", query_embedding)
-    .fetch_all()
+    .execute()
     .await?;
 ```
 
@@ -1205,7 +1429,7 @@ let results = db.query(
 )
     .param("startVid", start_vid.as_u64() as i64)
     .param("endVid", end_vid.as_u64() as i64)
-    .fetch_all()
+    .execute()
     .await?;
 
 // Louvain community detection
@@ -1520,7 +1744,7 @@ pub use crate::vector::VectorMatch;
 ## Complete Example
 
 ```rust
-use uni::prelude::*;
+use uni::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -1563,7 +1787,7 @@ async fn main() -> Result<()> {
          ORDER BY p.year DESC"
     )
         .param("min_year", 2020)
-        .fetch_all()
+        .execute()
         .await?;
 
     println!("Found {} results:", results.len());
@@ -1588,7 +1812,7 @@ async fn main() -> Result<()> {
     for (vid, score) in rankings.iter().take(5) {
         let result = db.query_with("MATCH (p:Paper) WHERE id(p) = $vid RETURN p.title")
             .param("vid", vid.as_u64() as i64)
-            .fetch_all()
+            .execute()
             .await?;
         if let Some(row) = result.rows().first() {
             println!("  {:.6}: {}", score, row.get::<String>("p.title")?);
@@ -1611,23 +1835,25 @@ The following features exist internally but have limited or no exposure through 
 |---------|----------|--------|-------|
 | Basic CRUD | ✅ | ✅ | `query()`, `execute()` |
 | Parameterized queries | ✅ | ✅ | `query_with().param()` |
+| Streaming queries | ✅ | — | `query_cursor()` for large result sets |
 | Transactions | ✅ | ✅ | `begin()`, `transaction()` |
 | Schema definition | ✅ | ✅ | `schema()` builder |
+| Schema introspection | ✅ | ✅ | `list_labels()`, `get_label_info()`, `db.labels()` |
 | Vector search | ✅ | ✅ | `vector_search()` + `db.idx.vector.query()` |
 | PageRank / WCC | ✅ | ✅ | `algo().pagerank()` |
 | Session variables | ✅ | ✅ | `session().set().build()` + `$session.*` |
 | Bulk loading | ✅ | — | `bulk_writer()` with deferred indexing |
-| Snapshots | ✅ | ✅ | `at_snapshot()`, `list_snapshots()`, `db.snapshot.*` |
+| Snapshots | ✅ | ✅ | `create_named_snapshot()`, `open_named_snapshot()`, `db.snapshot.*` |
+| EXPLAIN/PROFILE | ✅ | ✅ | `explain()`, `profile()` |
+| Compaction control | ✅ | — | `compact_label()`, `wait_for_compaction()` |
+| Index management | ✅ | — | `rebuild_indexes()`, `index_rebuild_status()` |
 | Temporal queries | — | ✅ | `uni.validAt()`, `VALID_AT` macro |
 | Schema DDL procedures | — | ✅ | `db.createLabel()`, `db.createIndex()` |
-| Schema introspection | ✅ | ✅ | `db.labels()`, `db.indexes()`, `db.constraints()` |
-| EXPLAIN/PROFILE | ✅ | ✅ | `explain()`, `profile()` with index usage |
-| Import/Export | ❌ | ✅ | Use `COPY` (see below) |
-| Embedding generation | ❌ | ✅ | Auto on CREATE with schema config |
-| Other algorithms | ❌ | ✅ | Use `CALL algo.*` |
-| CRDT operations | ❌ | ✅ | Schema type + Cypher |
-| S3/GCS storage | ❌ | — | Filesystem assumptions in metadata ops |
-| Compaction control | ❌ | ❌ | Automatic only |
+| Import/Export | — | ✅ | Use `COPY` (see below) |
+| Embedding generation | — | ✅ | Auto on CREATE with schema config |
+| Other algorithms | — | ✅ | Use `CALL algo.*` |
+| CRDT operations | — | ✅ | Schema type + Cypher |
+| S3/GCS storage | — | — | Filesystem assumptions in metadata ops |
 
 ### Batch Ingestion
 
@@ -1646,7 +1872,7 @@ db.query_with(
      CREATE (n:Paper {title: p.title, year: p.year})"
 )
     .param("papers", papers)
-    .fetch_all()
+    .execute()
     .await?;
 ```
 
@@ -1686,7 +1912,7 @@ let results = db.query_with(
 )
     .param("start", start_vid)
     .param("end", end_vid)
-    .fetch_all()
+    .execute()
     .await?;
 
 // Label propagation
@@ -1721,7 +1947,7 @@ let results = db.query(
      RETURN node.title, distance"
 )
     .param("query_vec", query_embedding)
-    .fetch_all()
+    .execute()
     .await?;
 ```
 
@@ -1764,23 +1990,30 @@ Supporting object stores would require abstracting these operations to use `obje
 
 ### Full-Text Search
 
-FTS indexes can be created but querying is not yet implemented:
+FTS indexes and queries are fully supported:
 
 ```rust
-// Create FTS index (works)
+// Create FTS index
 db.execute("CREATE FULLTEXT INDEX bio_fts FOR (p:Person) ON EACH [p.bio]").await?;
 
-// FTS query (NOT YET IMPLEMENTED)
-// CONTAINS, STARTS WITH, ENDS WITH not supported in parser
-// No db.idx.fts.query() procedure exists
+// FTS queries with CONTAINS, STARTS WITH, ENDS WITH
+let results = db.query(r#"
+    MATCH (p:Person)
+    WHERE p.bio CONTAINS 'machine learning'
+    RETURN p.name, p.bio
+"#).await?;
+
+let results = db.query(r#"
+    MATCH (p:Person)
+    WHERE p.name STARTS WITH 'John'
+    RETURN p.name
+"#).await?;
 ```
 
 ### What's NOT Accessible
 
 These internal features have no public access path:
 
-- **Compaction control**: No `compact()` method; runs automatically
-- **Snapshot management**: Internal only; no create/restore API
 - **WAL management**: Only `wal_enabled` config flag; no rotation/recovery API
 - **ID allocation**: Internal `IdAllocator`; no public ID control
 - **Subgraph extraction**: Internal `load_subgraph_cached()`; no public method

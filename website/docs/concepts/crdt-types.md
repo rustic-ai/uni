@@ -16,6 +16,12 @@ CRDTs are data structures that can be replicated across multiple nodes, updated 
 │   (Grow-only)    │   (Grow-only)    │   (Last-Writer-Wins)                  │
 │                  │ • ORSet          │ • LWWMap                              │
 │                  │   (Add-wins)     │   (Per-key LWW)                       │
+│                  │                  │ • VCRegister                          │
+│                  │                  │   (Vector-clock-based)                │
+├──────────────────┴──────────────────┴───────────────────────────────────────┤
+│                          CAUSAL ORDERING                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • VectorClock - Causal ordering primitive for distributed systems           │
 ├──────────────────┴──────────────────┴───────────────────────────────────────┤
 │                          SEQUENCES                                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -356,6 +362,158 @@ assert_eq!(result, "ACB");
 
 ---
 
+## VectorClock (Causal Ordering)
+
+A vector clock tracks causal relationships between events in a distributed system. Each node maintains a map of actor IDs to logical counters.
+
+### Use Cases
+- Causal ordering of operations
+- Detecting concurrent updates
+- Building causally-consistent CRDTs
+- Conflict detection in distributed systems
+
+### API
+
+```rust
+use uni_crdt::VectorClock;
+
+let mut clock = VectorClock::new();
+
+// Increment clock for an actor
+clock.increment("node_a");
+clock.increment("node_a");
+clock.increment("node_b");
+
+// Get clock value for an actor
+assert_eq!(clock.get("node_a"), 2);
+assert_eq!(clock.get("node_b"), 1);
+assert_eq!(clock.get("node_c"), 0);  // Unknown actors return 0
+```
+
+### Causal Ordering
+
+```rust
+let mut a = VectorClock::new();
+a.increment("node1");  // {node1: 1}
+
+let mut b = a.clone();
+b.increment("node1");  // {node1: 2}
+
+// a happened before b
+assert!(a.happened_before(&b));
+assert!(!b.happened_before(&a));
+
+// Concurrent clocks (neither happened before the other)
+let mut c = a.clone();
+c.increment("node2");  // {node1: 1, node2: 1}
+
+// b {node1: 2} and c {node1: 1, node2: 1} are concurrent
+assert!(b.is_concurrent(&c));
+```
+
+### Merge Behavior
+
+```rust
+let mut a = VectorClock::new();
+a.increment("node1");  // {node1: 1}
+
+let mut b = VectorClock::new();
+b.increment("node2");  // {node2: 1}
+
+a.merge(&b);
+
+// Point-wise maximum
+assert_eq!(a.get("node1"), 1);
+assert_eq!(a.get("node2"), 1);
+```
+
+---
+
+## VCRegister (Vector-Clock Register)
+
+A register using vector clocks for causal ordering instead of timestamps. Provides better conflict detection than LWWRegister when nodes have clock skew.
+
+### Use Cases
+- Causally-consistent single values
+- Conflict detection required (not just resolution)
+- Multi-datacenter replication
+- Systems where clock synchronization is unreliable
+
+### API
+
+```rust
+use uni_crdt::VCRegister;
+
+// Create with initial value and actor ID
+let mut reg = VCRegister::new("initial".to_string(), "node_a");
+
+// Get current value
+assert_eq!(reg.get(), "initial");
+
+// Set new value (increments clock for actor)
+reg.set("updated".to_string(), "node_a");
+assert_eq!(reg.get(), "updated");
+
+// Access underlying clock
+let clock = reg.clock();
+assert_eq!(clock.get("node_a"), 2);  // Incremented twice (new + set)
+```
+
+### Merge Behavior
+
+```rust
+use uni_crdt::{VCRegister, MergeResult};
+
+let mut r1 = VCRegister::new("A".to_string(), "node1");
+let r2 = r1.clone();
+
+// r1 advances causally
+r1.set("B".to_string(), "node1");
+
+// Merging: r1 is causally newer, keeps its value
+let mut r1_copy = r1.clone();
+let result = r1_copy.merge_register(&r2);
+assert_eq!(result, MergeResult::KeptSelf);
+assert_eq!(r1_copy.get(), "B");
+
+// Merging other direction: r2 takes r1's value
+let mut r2_copy = r2.clone();
+let result = r2_copy.merge_register(&r1);
+assert_eq!(result, MergeResult::TookOther);
+assert_eq!(r2_copy.get(), "B");
+```
+
+### Concurrent Updates
+
+```rust
+let base = VCRegister::new("Base".to_string(), "node1");
+
+let mut r1 = base.clone();
+r1.set("A".to_string(), "node1");  // {node1: 2}
+
+let mut r2 = base.clone();
+r2.set("B".to_string(), "node2");  // {node1: 1, node2: 1}
+
+// These are concurrent (neither causally happened before the other)
+let result = r1.merge_register(&r2);
+assert_eq!(result, MergeResult::Concurrent);
+
+// On conflict: keeps self's value, merges clocks
+assert_eq!(r1.get(), "A");
+assert_eq!(r1.clock().get("node1"), 2);
+assert_eq!(r1.clock().get("node2"), 1);
+```
+
+### MergeResult Enum
+
+| Result | Meaning |
+|--------|---------|
+| `KeptSelf` | Self was causally newer or equal |
+| `TookOther` | Other was causally newer |
+| `Concurrent` | Updates were concurrent; kept self's value, merged clocks |
+
+---
+
 ## Dynamic CRDT Wrapper
 
 For storage and serialization, Uni provides a dynamic `Crdt` enum:
@@ -400,9 +558,11 @@ a.merge(&b);
 | Page views, likes | GCounter | Only increments, no conflict |
 | Tags (append-only) | GSet | Never need removal |
 | User selections | ORSet | Need add/remove with add-wins |
-| Single property value | LWWRegister | Simple conflict resolution |
+| Single property value | LWWRegister | Simple timestamp-based resolution |
+| Causally-consistent value | VCRegister | Conflict detection, no clock sync needed |
 | Key-value properties | LWWMap | Per-key conflict resolution |
 | Collaborative text | Rga | Ordered with concurrent edits |
+| Causal ordering | VectorClock | Track happened-before relationships |
 
 ---
 

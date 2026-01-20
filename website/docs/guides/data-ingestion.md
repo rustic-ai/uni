@@ -295,7 +295,7 @@ For maximum control, use the Rust API directly.
 The `BulkWriter` API provides high-performance bulk loading with deferred index building:
 
 ```rust
-use uni::prelude::*;
+use uni::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -415,7 +415,7 @@ bulk.abort().await?;
 For fine-grained control, use the low-level writer:
 
 ```rust
-use uni::prelude::*;
+use uni::*;
 use std::sync::Arc;
 
 #[tokio::main]
