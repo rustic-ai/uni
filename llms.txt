@@ -67,8 +67,10 @@ let db = Uni::open_existing("./my_graph").build().await?;
 // Create new only (fail if exists)
 let db = Uni::create("./my_graph").build().await?;
 
-// Object storage (S3/GCS)
+// Object storage (S3/GCS/Azure)
 let db = Uni::open("s3://bucket/path").build().await?;
+let db = Uni::open("gs://bucket/path").build().await?;
+let db = Uni::open("az://account/container").build().await?;
 
 // Hybrid: local WAL + remote storage
 let db = Uni::open("s3://bucket/path")
@@ -85,6 +87,51 @@ let db = Uni::open("./my_graph")
 // Time-travel: open at specific snapshot
 let db = Uni::open("./my_graph")
     .at_snapshot("snapshot_id")
+    .build().await?;
+```
+
+### Cloud Storage Configuration
+
+```rust
+use uni::CloudStorageConfig;
+
+// S3 from environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, etc.)
+let config = CloudStorageConfig::s3_from_env("my-bucket");
+
+// S3 with explicit configuration (supports S3-compatible services like MinIO, LocalStack)
+let config = CloudStorageConfig::S3 {
+    bucket: "my-bucket".to_string(),
+    region: Some("us-east-1".to_string()),
+    endpoint: Some("http://localhost:4566".to_string()),  // For LocalStack
+    access_key_id: Some("key".to_string()),
+    secret_access_key: Some("secret".to_string()),
+    session_token: None,
+    virtual_hosted_style: false,
+};
+
+// GCS from environment (GOOGLE_APPLICATION_CREDENTIALS)
+let config = CloudStorageConfig::gcs_from_env("my-bucket");
+
+// GCS with service account
+let config = CloudStorageConfig::Gcs {
+    bucket: "my-bucket".to_string(),
+    service_account_path: Some("/path/to/service-account.json".to_string()),
+    service_account_key: None,
+};
+
+// Azure from environment (AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_ACCESS_KEY)
+let config = CloudStorageConfig::azure_from_env("my-container");
+
+// Azure with explicit configuration
+let config = CloudStorageConfig::Azure {
+    container: "my-container".to_string(),
+    account: "mystorageaccount".to_string(),
+    access_key: Some("key".to_string()),
+    sas_token: None,
+};
+
+let db = Uni::open(&config.to_url())
+    .cloud_config(config)
     .build().await?;
 ```
 
@@ -183,7 +230,7 @@ IndexType::Vector(VectorIndexCfg {
 })
 
 // Scalar indexes
-IndexType::Scalar(ScalarType::BTree)   // Range queries
+IndexType::Scalar(ScalarType::BTree)   // Range queries, STARTS WITH optimization
 IndexType::Scalar(ScalarType::Hash)    // Equality lookups
 IndexType::Scalar(ScalarType::Bitmap)  // Low-cardinality columns
 
@@ -342,7 +389,7 @@ WHERE n.name = 'Alice'
 WHERE n.name STARTS WITH 'A'
 WHERE n.name ENDS WITH 'e'
 WHERE n.name CONTAINS 'lic'
-WHERE n.name =~ 'A.*'        -- Regex
+WHERE n.name =~ 'A.*'        -- Regex pattern matching
 WHERE n.tags IN ['a', 'b']
 WHERE n.active IS NOT NULL
 WHERE n.age > 20 AND n.age < 40
@@ -357,41 +404,6 @@ min(n.value)
 max(n.value)
 collect(n.name)              -- Collect into list
 
--- Functions
-id(n)                        -- Internal node ID
-labels(n)                    -- Node labels
-type(r)                      -- Relationship type
-properties(n)                -- All properties as map
-keys(n)                      -- Property keys
-coalesce(n.a, n.b, 'default')
-toString(n.value)
-toInteger(n.value)
-toFloat(n.value)
-size(list)
-length(path)
-head(list)
-tail(list)
-last(list)
-range(0, 10)
-
--- String functions
-trim(s), ltrim(s), rtrim(s)
-toUpper(s), toLower(s)
-substring(s, start, length)
-replace(s, search, replace)
-split(s, delimiter)
-
--- Date/Time
-date()
-datetime()
-time()
-duration({days: 1, hours: 2})
-
--- Path functions
-nodes(path)                  -- List of nodes in path
-relationships(path)          -- List of relationships
-length(path)                 -- Number of relationships
-
 -- RETURN
 RETURN n
 RETURN n.name, n.age
@@ -405,6 +417,69 @@ ORDER BY n.age DESC, n.name
 LIMIT 10
 SKIP 20
 SKIP 20 LIMIT 10
+```
+
+### Cypher Functions Reference
+
+```cypher
+-- Math functions
+abs(n.value)                 -- Absolute value
+ceil(n.value)                -- Round up
+floor(n.value)               -- Round down
+round(n.value)               -- Round to nearest integer
+sqrt(n.value)                -- Square root
+sign(n.value)                -- Sign (-1, 0, or 1)
+log(n.value)                 -- Natural logarithm
+log10(n.value)               -- Base-10 logarithm
+exp(n.value)                 -- e^x
+power(base, exp)             -- Exponentiation (also: pow)
+sin(n.value), cos(n.value), tan(n.value)  -- Trigonometric
+
+-- String functions
+toUpper(s), upper(s)         -- Uppercase
+toLower(s), lower(s)         -- Lowercase
+trim(s), ltrim(s), rtrim(s)  -- Trim whitespace
+reverse(s)                   -- Reverse string
+replace(s, search, replace)  -- Replace substring
+split(s, delimiter)          -- Split into list
+substring(s, start, length)  -- Extract substring
+left(s, length)              -- Left characters
+right(s, length)             -- Right characters
+lpad(s, length, pad)         -- Left pad
+rpad(s, length, pad)         -- Right pad
+
+-- Type conversion
+toInteger(value), toInt(value)   -- Convert to integer
+toFloat(value)                   -- Convert to float
+toString(value)                  -- Convert to string
+toBoolean(value), toBool(value)  -- Convert to boolean
+
+-- List/Collection functions
+size(list)                   -- List/Map/String length
+keys(map)                    -- Map keys
+head(list)                   -- First element
+tail(list)                   -- All but first element
+last(list)                   -- Last element
+length(path)                 -- Path length (relationship count)
+nodes(path)                  -- Nodes in path
+relationships(path)          -- Relationships in path
+range(start, end)            -- Create range list
+
+-- Null handling
+coalesce(a, b, 'default')    -- First non-null value
+nullif(a, b)                 -- Return null if a equals b
+
+-- Node/Relationship functions
+id(n)                        -- Internal node/edge ID
+labels(n)                    -- Node labels
+type(r)                      -- Relationship type
+properties(n)                -- All properties as map
+
+-- Date/Time
+date()                       -- Current date
+datetime()                   -- Current datetime
+time()                       -- Current time
+duration({days: 1, hours: 2})  -- Duration literal
 ```
 
 ---
@@ -455,9 +530,20 @@ WHERE node.category = 'tech'
 RETURN node.title, distance
 ```
 
+### Vector Distance Functions
+
+```cypher
+-- Vector similarity (requires vector index)
+cosine(v1, v2)               -- Cosine similarity
+euclidean(v1, v2)            -- Euclidean (L2) distance
+dot(v1, v2)                  -- Dot product (inner product)
+```
+
 ---
 
 ## Graph Algorithms
+
+Uni provides 37+ graph algorithms accessible via Cypher procedures and the Rust API.
 
 ### Rust API
 
@@ -481,10 +567,9 @@ let components = db.algo()
     .await?;  // Vec<(Vid, i64)>
 ```
 
-### Algorithm Procedures via Cypher
+### Centrality Algorithms
 
 ```cypher
--- Centrality
 CALL algo.pageRank(['Person'], ['KNOWS']) YIELD nodeId, score
 CALL algo.betweenness(['Person'], ['KNOWS']) YIELD nodeId, score
 CALL algo.closeness(['Person'], ['KNOWS']) YIELD nodeId, score
@@ -492,42 +577,64 @@ CALL algo.degreeCentrality(['Person'], ['KNOWS'], 'BOTH') YIELD nodeId, degree
 CALL algo.eigenvectorCentrality(['Person'], ['KNOWS']) YIELD nodeId, score
 CALL algo.harmonicCentrality(['Person'], ['KNOWS']) YIELD nodeId, score
 CALL algo.katzCentrality(['Person'], ['KNOWS']) YIELD nodeId, score
+```
 
--- Community Detection
+### Community Detection
+
+```cypher
 CALL algo.wcc(['Person'], ['KNOWS']) YIELD nodeId, componentId
 CALL algo.scc(['Person'], ['KNOWS']) YIELD nodeId, componentId
 CALL algo.louvain(['Person'], ['KNOWS']) YIELD nodeId, communityId
 CALL algo.labelPropagation(['Person'], ['KNOWS']) YIELD nodeId, communityId
+```
 
--- Path Finding
-CALL algo.shortestPath(sourceVid, targetVid, ['KNOWS']) YIELD path, length
+### Path Finding
+
+```cypher
+CALL algo.shortestPath(sourceNode, targetNode, ['KNOWS']) YIELD nodeIds, edgeIds, length
 CALL algo.dijkstra(sourceVid, targetVid, ['KNOWS'], 'weight') YIELD path, cost
 CALL algo.astar(sourceVid, targetVid, ['KNOWS']) YIELD path, cost
 CALL algo.bellmanFord(sourceVid, ['KNOWS'], 'weight') YIELD nodeId, distance
 CALL algo.bidirectionalDijkstra(sourceVid, targetVid, ['KNOWS']) YIELD path, cost
 CALL algo.kShortestPaths(sourceVid, targetVid, ['KNOWS'], 3) YIELD path, cost
 CALL algo.allSimplePaths(sourceVid, targetVid, ['KNOWS'], 5) YIELD path
+CALL algo.apsp(['Person'], ['KNOWS']) YIELD source, target, distance  -- All-pairs shortest paths
+```
 
--- Structural Analysis
+### Structural Analysis
+
+```cypher
 CALL algo.triangleCount(['Person'], ['KNOWS']) YIELD count
 CALL algo.kcore(['Person'], ['KNOWS'], 3) YIELD nodeId, coreLevel
 CALL algo.bridges(['Person'], ['KNOWS']) YIELD source, target
 CALL algo.articulationPoints(['Person'], ['KNOWS']) YIELD nodeId
 CALL algo.bipartiteCheck(['Person'], ['KNOWS']) YIELD isBipartite, partition
+CALL algo.cycleDetection(['Task'], ['DEPENDS_ON']) YIELD hasCycle, cycle
+CALL algo.elementaryCircuits(['Person'], ['KNOWS']) YIELD circuit
+CALL algo.graphColoring(['Person'], ['KNOWS']) YIELD nodeId, color
+```
 
--- Graph Algorithms
+### Graph Algorithms
+
+```cypher
 CALL algo.mst(['Person'], ['KNOWS'], 'weight') YIELD edges, totalWeight
 CALL algo.maxMatching(['Person'], ['KNOWS']) YIELD node1, node2
 CALL algo.maxFlow(sourceVid, sinkVid, ['PIPE'], 'capacity') YIELD maxFlow
 CALL algo.graphMetrics(['Person'], ['KNOWS']) YIELD diameter, radius, center
+CALL algo.maximalCliques(['Person'], ['KNOWS']) YIELD clique
+```
 
--- Similarity
+### Similarity
+
+```cypher
 CALL algo.nodeSimilarity(['Person'], ['KNOWS']) YIELD node1, node2, similarity
+```
 
--- Traversal
+### Traversal
+
+```cypher
 CALL algo.randomWalk(startVid, 10, ['KNOWS']) YIELD path
 CALL algo.topologicalSort(['Task'], ['DEPENDS_ON']) YIELD nodeId, order
-CALL algo.cycleDetection(['Task'], ['DEPENDS_ON']) YIELD hasCycle, cycle
 ```
 
 ---
@@ -634,36 +741,69 @@ db.backup("./backup_path").await?;
 ## Configuration
 
 ```rust
-use uni::{UniConfig, CompactionConfig, WriteThrottleConfig};
+use uni::{UniConfig, CompactionConfig, WriteThrottleConfig, ObjectStoreConfig};
 use std::time::Duration;
 
 let config = UniConfig {
     cache_size: 1024 * 1024 * 1024,      // 1GB adjacency cache
     parallelism: 8,                       // Worker threads
     batch_size: 1024,                     // Query batch size
-    max_frontier_size: 100_000,           // Traversal limit
+    max_frontier_size: 1_000_000,         // Traversal limit
     auto_flush_threshold: 10_000,         // Mutations before auto-flush
+    auto_flush_interval: Some(Duration::from_secs(5)),  // Time-based flush
+    auto_flush_min_mutations: 1,          // Min mutations for time-based flush
     wal_enabled: true,                    // Write-ahead logging
     query_timeout: Duration::from_secs(30),
     max_query_memory: 1024 * 1024 * 1024, // 1GB per query
-    object_store_timeout: Duration::from_secs(30),
     compaction: CompactionConfig {
         enabled: true,
         max_l1_runs: 4,
-        target_file_size: 128 * 1024 * 1024,
-        check_interval: Duration::from_secs(60),
+        max_l1_size_bytes: 256 * 1024 * 1024,
+        max_l1_age: Duration::from_secs(3600),
+        check_interval: Duration::from_secs(30),
+        worker_threads: 1,
     },
     throttle: WriteThrottleConfig {
-        soft_limit: 50_000,
-        hard_limit: 100_000,
-        delay: Duration::from_millis(10),
+        soft_limit: 8,
+        hard_limit: 16,
+        base_delay: Duration::from_millis(10),
     },
+    object_store: ObjectStoreConfig {
+        connect_timeout: Duration::from_secs(10),
+        read_timeout: Duration::from_secs(30),
+        write_timeout: Duration::from_secs(60),
+        max_retries: 3,
+        retry_backoff_base: Duration::from_millis(100),
+        retry_backoff_max: Duration::from_secs(10),
+    },
+    ..Default::default()
 };
 
 let db = Uni::open("./my_graph")
     .config(config)
     .build()
     .await?;
+```
+
+### Server Mode Configuration
+
+```rust
+use uni::{ServerConfig, FileSandboxConfig, DeploymentMode};
+
+// Development server (permissive - NOT for production)
+let server_config = ServerConfig::development();
+
+// Production server with security
+let server_config = ServerConfig::production(
+    vec!["https://myapp.com".to_string()],  // Allowed CORS origins
+    "my-secret-api-key".to_string(),        // Required API key
+);
+
+// File sandbox for secure file operations (BACKUP, COPY, EXPORT)
+let sandbox = FileSandboxConfig::sandboxed(vec![
+    PathBuf::from("/var/lib/uni/data"),
+    PathBuf::from("/var/lib/uni/backups"),
+]);
 ```
 
 ---
@@ -691,6 +831,41 @@ match db.query("MATCH (n:Person) RETURN n").await {
         eprintln!("Error: {}", e);
     }
 }
+```
+
+---
+
+## Query Optimization
+
+### Index-Aware Predicate Pushdown
+
+Uni automatically optimizes queries using available indexes in order of selectivity:
+
+1. **UID lookup** (`_uid = 'xxx'`) - O(1) hash lookup
+2. **JSON FTS** (`column CONTAINS 'term'`) - BM25 full-text search
+3. **JsonPath index** (`prop = 'value'` for indexed paths)
+4. **BTree prefix scan** (`STARTS WITH 'prefix'`) - Range scan on BTree indexes
+5. **Lance scan filter** - Columnar filter pushdown
+6. **Residual** - Application-level evaluation
+
+### STARTS WITH Optimization
+
+When a property has a BTree index, `STARTS WITH` predicates are automatically converted to efficient range scans:
+
+```cypher
+-- With BTree index on name, this becomes a range scan:
+-- name >= 'John' AND name < 'Joho'
+MATCH (n:Person) WHERE n.name STARTS WITH 'John' RETURN n
+```
+
+### Regex Pattern Matching
+
+```cypher
+-- Match names starting with A followed by any characters
+MATCH (n:Person) WHERE n.name =~ 'A.*' RETURN n.name
+
+-- Match email patterns
+MATCH (n:Person) WHERE n.email =~ '.*@example\\.com' RETURN n
 ```
 
 ---
@@ -790,6 +965,40 @@ let docs = db.vector_search_with("Document", "embedding", &query_embedding)
     .await?;
 ```
 
+### Fraud Detection
+
+```rust
+db.schema()
+    .label("Account")
+    .property("id", DataType::String)
+    .property("created_at", DataType::DateTime)
+    .done()
+    .label("Device")
+    .property("fingerprint", DataType::String)
+    .done()
+    .edge_type("LOGGED_IN_FROM", &["Account"], &["Device"])
+    .edge_type("TRANSFERRED_TO", &["Account"], &["Account"])
+    .property("amount", DataType::Float64)
+    .property("timestamp", DataType::DateTime)
+    .done()
+    .apply()
+    .await?;
+
+// Find accounts sharing devices (potential fraud ring)
+let results = db.query("
+    MATCH (a1:Account)-[:LOGGED_IN_FROM]->(d:Device)<-[:LOGGED_IN_FROM]-(a2:Account)
+    WHERE a1 <> a2
+    RETURN a1.id, a2.id, d.fingerprint
+").await?;
+
+// Detect circular money transfers
+let results = db.query("
+    CALL algo.cycleDetection(['Account'], ['TRANSFERRED_TO'])
+    YIELD hasCycle, cycle
+    RETURN hasCycle, cycle
+").await?;
+```
+
 ### Supply Chain
 
 ```rust
@@ -829,14 +1038,69 @@ let results = db.query("
 
 ---
 
+## Python Bindings
+
+Uni provides Python bindings via PyO3 for use in Python applications and Jupyter notebooks.
+
+```python
+import uni
+
+# Create in-memory database
+db = uni.Database.in_memory()
+
+# Define schema
+db.schema() \
+    .label("Person") \
+    .property("name", uni.DataType.String) \
+    .property("age", uni.DataType.Int32) \
+    .done() \
+    .edge_type("KNOWS", ["Person"], ["Person"]) \
+    .apply()
+
+# Execute queries
+db.execute("CREATE (:Person {name: 'Alice', age: 30})")
+db.execute("CREATE (:Person {name: 'Bob', age: 25})")
+
+# Query data
+results = db.query("MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age")
+for row in results:
+    print(f"{row['p.name']}: {row['p.age']}")
+
+# Vector search
+query_vec = [0.1, 0.2, ...]  # Your embedding
+matches = db.vector_search("Document", "embedding", query_vec, k=10)
+
+# Flush and close
+db.flush()
+```
+
+---
+
+## Jupyter Notebook Examples
+
+Uni includes Jupyter notebooks demonstrating common use cases:
+
+| Notebook | Description |
+|----------|-------------|
+| `supply_chain.ipynb` | BOM explosion, cost rollup, supplier analysis |
+| `recommendation.ipynb` | Collaborative filtering, vector similarity |
+| `rag.ipynb` | Retrieval-Augmented Generation with knowledge graphs |
+| `fraud_detection.ipynb` | Cycle detection, shared device analysis |
+| `sales_analytics.ipynb` | Graph traversal with columnar aggregations |
+
+Available for both Rust (evcxr_jupyter) and Python.
+
+---
+
 ## Architecture Notes
 
 - **Storage**: Lance columnar format with CSR adjacency for fast traversal
 - **Concurrency**: Single-writer, multi-reader with snapshot isolation
 - **WAL**: Write-ahead logging for durability
-- **Indexes**: Lance-native vector indexes (HNSW, IVF-PQ) and scalar indexes
-- **Compaction**: LSM-style (L0 memory → L1 sorted runs → L2 merged)
-- **Object Store**: Supports local filesystem, S3, GCS via object_store crate
+- **Indexes**: Lance-native vector indexes (HNSW, IVF-PQ, Flat) and scalar indexes (BTree, Hash, Bitmap)
+- **Compaction**: LSM-style (L0 memory -> L1 sorted runs -> L2 merged)
+- **Object Store**: Supports local filesystem, S3, GCS, Azure via object_store crate
+- **Hybrid Storage**: Local WAL + remote object storage for fast writes with durable storage
 
 ---
 
