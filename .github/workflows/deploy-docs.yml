@@ -52,6 +52,7 @@ jobs:
           pip install ../../target/wheels/*.whl
 
       # Install uni-pydantic (pydantic notebooks need it)
+      # uni-db requirement is satisfied by wheel installed above
       - name: Install uni-pydantic
         run: |
           pip install ./bindings/python/uni-pydantic

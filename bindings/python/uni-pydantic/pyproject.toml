@@ -26,6 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.0.0,<3.0.0",
+    "uni-db>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -34,9 +35,6 @@ dev = [
     "mypy>=1.0.0",
     "pytest>=7.0.0",
 ]
-
-# Note: uni-db must be installed separately from the parent bindings/python directory
-# using: cd bindings/python && poetry run maturin develop
 
 [project.urls]
 Homepage = "https://www.rustic.ai"
@@ -55,6 +53,10 @@ packages = [{ include = "uni_pydantic", from = "src" }]
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 pydantic = ">=2.0.0,<3.0.0"
+uni-db = { path = "../", develop = true }
+
+[tool.poetry-monorepo.deps]
+enabled = true
 
 [tool.poetry.group.dev.dependencies]
 ruff = ">=0.1.0"
